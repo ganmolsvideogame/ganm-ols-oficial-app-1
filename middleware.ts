@@ -1,10 +1,10 @@
-﻿import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next();
 
   try {
+    const { createServerClient } = await import("@supabase/ssr");
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey =
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
@@ -30,7 +30,8 @@ export async function middleware(request: NextRequest) {
 
     await supabase.auth.getUser();
     return response;
-  } catch {
+  } catch (error) {
+    console.error("middleware_error", error);
     // Fail open to avoid 500s in middleware.
     return NextResponse.next();
   }
@@ -41,3 +42,5 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
+
+
