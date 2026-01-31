@@ -23,7 +23,6 @@ export async function middleware(request: NextRequest) {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
         response = NextResponse.next({
           request: {
             headers: request.headers,
@@ -36,7 +35,11 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  await supabase.auth.getUser();
+  try {
+    await supabase.auth.getUser();
+  } catch {
+    // Fail open to avoid 500s if Supabase is unavailable in edge.
+  }
 
   return response;
 }
