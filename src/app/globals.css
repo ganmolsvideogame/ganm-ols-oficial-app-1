@@ -39,3 +39,132 @@ body {
     opacity: 1;
   }
 }
+
+:root{
+  --g-bg: #07070a;
+  --g-card: rgba(16,16,20,.62);
+  --g-card2: rgba(16,16,20,.42);
+  --g-ring: rgba(255,255,255,.08);
+  --g-ring2: rgba(255,255,255,.14);
+  --g-text: rgba(255,255,255,.92);
+  --g-muted: rgba(255,255,255,.64);
+  --g-accent: #58f6d8; /* acento gamer CONTROLADO */
+}
+
+body{
+  background:
+    radial-gradient(1200px 800px at 15% -10%, rgba(88,246,216,.14), transparent 60%),
+    radial-gradient(900px 600px at 90% 10%, rgba(255,255,255,.06), transparent 55%),
+    var(--g-bg);
+  color: var(--g-text);
+}
+
+/* noise sutil (leve, dá “cara premium”) */
+.page-noise::before{
+  content:"";
+  position:fixed; inset:0;
+  pointer-events:none;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(255,255,255,.02) 0px,
+    rgba(255,255,255,.02) 1px,
+    transparent 2px,
+    transparent 4px
+  );
+  opacity:.22;
+  mix-blend-mode: overlay;
+}
+
+/* -------- Utilities (Tailwind layer) -------- */
+@layer utilities{
+  .g-container{ @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8; }
+
+  /* seção com ritmo + divisor elegante */
+  .g-section{ @apply relative py-10 sm:py-14; }
+  .g-section-divider::after{
+    content:"";
+    position:absolute;
+    left:0; right:0; bottom:0;
+    height:1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.10), transparent);
+    opacity:.7;
+  }
+
+  /* cards premium (mesma linguagem visual em tudo) */
+  .g-card{
+    background: var(--g-card);
+    border: 1px solid var(--g-ring);
+    border-radius: 18px;
+    box-shadow: 0 18px 50px rgba(0,0,0,.35);
+    backdrop-filter: blur(10px);
+  }
+  .g-card-soft{
+    background: var(--g-card2);
+    border: 1px solid var(--g-ring);
+    border-radius: 18px;
+  }
+  .g-card-hover{
+    transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+    will-change: transform;
+  }
+  .g-card-hover:hover{
+    border-color: var(--g-ring2);
+    transform: translateY(-2px);
+  }
+
+  /* brilho controlado (use pouco: CTA primário / destaque principal) */
+  .g-glow{
+    box-shadow: 0 0 0 1px rgba(88,246,216,.18),
+                0 20px 55px rgba(88,246,216,.10);
+  }
+
+  /* badges premium */
+  .g-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:.4rem;
+    padding:.28rem .55rem;
+    border-radius:999px;
+    border:1px solid var(--g-ring);
+    background: rgba(0,0,0,.25);
+    color: rgba(255,255,255,.78);
+    font-size: .72rem;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .g-badge-accent{
+    border-color: rgba(88,246,216,.35);
+    color: rgba(88,246,216,.92);
+  }
+
+  /* botões com “press feedback” */
+  .g-btn{
+    border-radius: 14px;
+    border: 1px solid var(--g-ring);
+    background: rgba(255,255,255,.06);
+    transition: transform .12s ease, background .18s ease, border-color .18s ease;
+  }
+  .g-btn:hover{ background: rgba(255,255,255,.10); border-color: var(--g-ring2); }
+  .g-btn:active{ transform: scale(.98); }
+  .g-btn-primary{
+    border-color: rgba(88,246,216,.35);
+    background: linear-gradient(180deg, rgba(88,246,216,.18), rgba(88,246,216,.08));
+  }
+
+  /* tipografia vendável */
+  .g-h2{ @apply text-xl sm:text-2xl font-semibold tracking-tight; }
+  .g-p{ @apply text-sm sm:text-base leading-relaxed text-white/70; }
+
+  /* reveal scroll (sem libs) */
+  .reveal{ opacity:0; transform: translateY(10px); }
+  .reveal.is-in{ opacity:1; transform: translateY(0); }
+  .reveal{ transition: opacity .35s ease, transform .35s ease; }
+
+  /* stagger em grids (cada item recebe --i) */
+  .stagger-item{ transition-delay: calc(var(--i) * 70ms); }
+
+  @media (prefers-reduced-motion: reduce){
+    .reveal, .g-card-hover, .g-btn{ transition:none !important; transform:none !important; }
+    .stagger-item{ transition-delay: 0ms !important; }
+  }
+}
