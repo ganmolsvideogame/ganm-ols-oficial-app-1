@@ -37,6 +37,7 @@ type ListingRow = {
   id: string;
   title: string | null;
   listing_type?: string | null;
+  thumbnail_url?: string | null;
 };
 
 type SearchParams = {
@@ -198,7 +199,7 @@ export default async function Page({ searchParams }: PageProps) {
     listingIds.length > 0
       ? await admin
           .from("listings")
-          .select("id, title, listing_type")
+          .select("id, title, listing_type, thumbnail_url")
           .in("id", listingIds)
       : { data: [] };
 
@@ -260,6 +261,7 @@ export default async function Page({ searchParams }: PageProps) {
             const listing = listingMap.get(order.listing_id);
             const title = listing?.title ?? "Anuncio";
             const isAuctionOrder = listing?.listing_type === "auction";
+            const thumbnailUrl = listing?.thumbnail_url ?? null;
             const paymentDeadline = parseDate(order.payment_deadline_at);
             const paymentExpired =
               paymentDeadline && paymentDeadline <= new Date();
@@ -290,8 +292,23 @@ export default async function Page({ searchParams }: PageProps) {
                   : "border-zinc-200"
               }`}
             >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex min-w-[220px] flex-1 flex-wrap items-start gap-4">
+                  <div className="h-20 w-20 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-100">
+                    {thumbnailUrl ? (
+                      <img
+                        src={thumbnailUrl}
+                        alt={title}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                        Sem foto
+                      </div>
+                    )}
+                  </div>
+                  <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
                     Pedido {order.id.slice(0, 8).toUpperCase()}
                   </p>
@@ -348,6 +365,7 @@ export default async function Page({ searchParams }: PageProps) {
                       O pagamento deve ser concluido em ate {AUCTION_PAYMENT_WINDOW_DAYS} dias.
                     </p>
                   ) : null}
+                  </div>
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-zinc-500">
