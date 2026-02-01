@@ -1,7 +1,7 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
-import { MLSection } from "@/components/ml/MLSection";
 
 const QUICK_LINKS = [
   {
@@ -78,28 +78,96 @@ const QUICK_LINKS = [
   },
 ];
 
+function scrollByAmount(
+  scroller: HTMLDivElement | null,
+  direction: "prev" | "next"
+) {
+  if (!scroller) {
+    return;
+  }
+  const prefersReduced =
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const amount = scroller.clientWidth * 0.9;
+  scroller.scrollBy({
+    left: direction === "prev" ? -amount : amount,
+    behavior: prefersReduced ? "auto" : "smooth",
+  });
+}
+
 export default function QuickAccess() {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+
   return (
-    <MLSection title="Acessos rapidos">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+    <section className="relative rounded-3xl border border-zinc-800 bg-[#0A0A0A] px-4 py-6 shadow-[0_22px_55px_rgba(0,0,0,0.45)] md:px-6">
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-500">
+            Acessos rapidos
+          </p>
+          <h2 className="mt-2 text-xl font-semibold text-white">
+            Acessos rapidos
+          </h2>
+        </div>
+        <div className="flex items-center gap-2 md:hidden">
+          <button
+            type="button"
+            aria-label="Anterior"
+            onClick={() => scrollByAmount(scrollerRef.current, "prev")}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-100 transition hover:border-white/60 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
+          >
+            <span aria-hidden="true">&lt;</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Proximo"
+            onClick={() => scrollByAmount(scrollerRef.current, "next")}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-100 transition hover:border-white/60 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
+          >
+            <span aria-hidden="true">&gt;</span>
+          </button>
+        </div>
+      </div>
+
+      <div
+        ref={scrollerRef}
+        className="flex gap-4 overflow-x-auto scroll-smooth pb-2 md:grid md:grid-cols-5 md:overflow-visible md:pb-0 motion-reduce:scroll-auto"
+        style={{ scrollSnapType: "x mandatory" }}
+      >
         {QUICK_LINKS.map((item) => (
           <article
             key={item.title}
-            className="ml-tile flex min-h-[140px] flex-col justify-between p-3"
+            className="group relative min-w-[240px] snap-start rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4 text-white shadow-[0_12px_24px_rgba(0,0,0,0.35)] transition duration-200 hover:border-white/50 hover:shadow-[0_0_18px_rgba(255,255,255,0.12)] md:min-w-0"
           >
-            <div>
-              <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-800">
-                {item.icon}
-              </div>
-              <h3 className="text-sm font-semibold">{item.title}</h3>
-              <p className="mt-1 text-xs text-zinc-600">{item.description}</p>
+            <div
+              className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition duration-200 group-hover:opacity-100 motion-reduce:transition-none"
+              aria-hidden="true"
+            >
+              <div className="absolute inset-0 rounded-2xl bg-[linear-gradient(transparent_0,rgba(255,255,255,0.06)_50%,transparent_100%)] opacity-10" />
+              <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.08),transparent_55%)] opacity-20" />
             </div>
-            <Link href={item.href} className="ml-btn mt-3">
-              {item.cta}
-            </Link>
+            <div className="relative z-10 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-white/90 font-mono">
+                  {item.title}
+                </h3>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950 text-zinc-100">
+                  {item.icon}
+                </div>
+                <p className="text-xs text-zinc-300">{item.description}</p>
+              </div>
+              <Link
+                href={item.href}
+                className="inline-flex items-center justify-center rounded-full border border-zinc-700 px-3 py-2 text-[11px] font-semibold text-white transition duration-200 hover:border-white hover:bg-white hover:text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-white motion-reduce:transition-none"
+              >
+                {item.cta}
+              </Link>
+            </div>
           </article>
         ))}
       </div>
-    </MLSection>
+    </section>
   );
 }

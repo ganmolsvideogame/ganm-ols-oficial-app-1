@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { formatCentsToBRL } from "@/lib/utils/price";
+import Badge from "@/components/ui/Badge";
+import Price from "@/components/ui/Price";
 
 type ProductCardProps = {
   href: string;
@@ -26,33 +27,42 @@ export default function ProductCard({
   return (
     <Link
       href={href}
-      className="ml-tile block p-3"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-md"
     >
-      <div className="ml-pcard">
-        <div className="ml-pimg">
-          {thumbnailUrl ? (
-            <img
-              src={thumbnailUrl}
-              alt={title}
-              className="h-full w-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <div className="text-xs text-zinc-400">
-              {platformLabel || "Sem foto"}
-            </div>
-          )}
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-zinc-50">
+        {badge ? (
+          <div className="absolute left-3 top-3 z-10">
+            <Badge label={badge} variant="solid" />
+          </div>
+        ) : null}
+        {thumbnailUrl ? (
+          <img
+            src={thumbnailUrl}
+            alt={title}
+            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-xs text-zinc-400">
+            {platformLabel || "Sem foto"}
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-1 flex-col gap-3 p-4">
+        <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-zinc-400">
+          <span>{platformLabel || "GANM OLS"}</span>
+          {conditionLabel ? <span>{conditionLabel}</span> : null}
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {badge ? <span className="ml-badge">{badge}</span> : null}
-          <span className="ml-badge">{platformLabel || "GANM OLS"}</span>
-          {conditionLabel ? (
-            <span className="ml-badge">{conditionLabel}</span>
+        <h3 className="min-h-[2.5rem] text-sm font-semibold text-zinc-900">
+          {title}
+        </h3>
+        <div className="flex items-end justify-between gap-3">
+          <Price cents={priceCents} size="md" />
+          {shippingLabel ? (
+            <span className="text-xs text-zinc-500">{shippingLabel}</span>
           ) : null}
         </div>
-        <div className="ml-ptitle">{title}</div>
-        <div className="ml-price">{formatCentsToBRL(priceCents ?? 0)}</div>
-        {shippingLabel ? <div className="ml-sub">{shippingLabel}</div> : null}
       </div>
     </Link>
   );
