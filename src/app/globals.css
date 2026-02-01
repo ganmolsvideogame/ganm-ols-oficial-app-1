@@ -65,7 +65,7 @@ body {
 
 /* utilidades */
 @layer utilities{
-  .ml-container{ @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8; }
+  .ml-container{ @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-10; }
 
   /* stack de módulos — ESSA é a chave pra não virar 1 bloco */
   .ml-stack{ @apply py-4 sm:py-6; }
