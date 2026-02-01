@@ -18,6 +18,10 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: "GANM OLS",
   description: "Marketplace gamer com foco em consoles, jogos e colecionaveis.",
+  icons: {
+    icon: "/ganmosicon.png",
+    apple: "/ganmosicon.png",
+  },
 };
 
 export const viewport: Viewport = {
