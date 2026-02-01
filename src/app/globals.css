@@ -39,3 +39,250 @@ body {
     opacity: 1;
   }
 }
+
+:root{
+  /* base ML */
+  --ml-bg: #ededed;
+  --ml-surface: #ffffff;
+  --ml-border: #e5e7eb;
+  --ml-shadow: 0 1px 2px rgba(0,0,0,.06), 0 10px 22px rgba(0,0,0,.08);
+  --ml-radius: 12px;
+
+  /* GANM OLS */
+  --go-text: #0b0b0d;
+  --go-muted: #6b7280;
+
+  /* “verde do ML” => AQUI vira AZUL (links/destaques/etiquetas) */
+  --go-blue: #3483fa;         /* azul ML-like */
+  --go-blue-soft: #e8f1ff;
+  --go-blue-strong: #1d4ed8;
+}
+
+.ganm-ml-scope{
+  background: var(--ml-bg);
+  color: var(--go-text);
+}
+
+/* utilidades */
+@layer utilities{
+  .ml-container{ @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8; }
+
+  /* stack de módulos — ESSA é a chave pra não virar 1 bloco */
+  .ml-stack{ @apply py-4 sm:py-6; }
+  .ml-stack > * + *{ margin-top: 18px; } /* separação entre módulos */
+
+  .ml-module{
+    background: var(--ml-surface);
+    border: 1px solid var(--ml-border);
+    border-radius: var(--ml-radius);
+    box-shadow: var(--ml-shadow);
+  }
+  .ml-pad{ @apply p-4 sm:p-6; }
+
+  .ml-head{ @apply flex items-center justify-between gap-3; }
+  .ml-title{ @apply text-lg sm:text-xl font-semibold tracking-tight; }
+  .ml-headlink{
+    @apply text-sm font-medium;
+    color: var(--go-blue);
+  }
+  .ml-headlink:hover{ text-decoration: underline; text-underline-offset: 4px; }
+
+  /* botões ML-like */
+  .ml-btn{
+    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold;
+    border: 1px solid var(--ml-border);
+    background: #f3f4f6;
+    color: var(--go-text);
+    transition: transform .12s ease, background .14s ease;
+  }
+  .ml-btn:hover{ background:#ececec; }
+  .ml-btn:active{ transform: scale(.98); }
+
+  .ml-btn-primary{
+    background: var(--go-blue);
+    border-color: var(--go-blue);
+    color: #fff;
+  }
+  .ml-btn-primary:hover{ background: #2f74e2; }
+
+  /* chips/etiquetas (substitui “verde” por azul) */
+  .ml-chip{
+    @apply inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold;
+    background: var(--go-blue-soft);
+    color: var(--go-blue-strong);
+    border: 1px solid rgba(52,131,250,.25);
+    white-space: nowrap;
+  }
+  .ml-sub{ @apply text-sm; color: var(--go-muted); }
+
+  /* tiles (faixa de cards pequenos tipo “Meios de pagamento”, “Mais vendidos” etc.) */
+  .ml-tile{
+    background: #fff;
+    border: 1px solid var(--ml-border);
+    border-radius: 12px;
+    box-shadow: 0 1px 1px rgba(0,0,0,.05);
+    transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+  }
+  .ml-tile:hover{
+    transform: translateY(-1px);
+    border-color: rgba(0,0,0,.12);
+    box-shadow: 0 2px 4px rgba(0,0,0,.08), 0 12px 22px rgba(0,0,0,.10);
+  }
+
+  /* =========================
+     BANNER/CARROSSEL (com bolinhas)
+     ========================= */
+  .ml-banner{
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--ml-border);
+    background: #f6f6f6;
+    position: relative;
+  }
+  .ml-banner-slide{
+    display:none;
+    height: 240px;
+  }
+  @media (min-width: 768px){
+    .ml-banner-slide{ height: 320px; }
+  }
+  .ml-banner-slide.is-active{ display:block; }
+
+  .ml-banner-img{
+    width:100%; height:100%;
+    object-fit: cover;
+    display:block;
+  }
+
+  .ml-dots{
+    position:absolute;
+    left: 50%;
+    bottom: 10px;
+    transform: translateX(-50%);
+    display:flex;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.75);
+    border: 1px solid var(--ml-border);
+  }
+  .ml-dot{
+    width: 7px; height: 7px;
+    border-radius:999px;
+    background: rgba(0,0,0,.25);
+    cursor:pointer;
+  }
+  .ml-dot.is-active{ background: var(--go-blue); }
+
+  /* setas do banner (desktop) */
+  .ml-nav{
+    position:absolute;
+    top:50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.95);
+    border: 1px solid var(--ml-border);
+    box-shadow: 0 10px 22px rgba(0,0,0,.14);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    user-select:none;
+  }
+  @media (min-width: 768px){
+    .ml-nav{ display:flex; }
+  }
+  .ml-nav.left{ left: 10px; }
+  .ml-nav.right{ right: 10px; }
+
+  .ml-nav::before{
+    content:"";
+    width: 10px; height: 10px;
+    border-top: 2px solid var(--go-text);
+    border-right: 2px solid var(--go-text);
+    transform: rotate(45deg);
+    display:block;
+  }
+  .ml-nav.left::before{ transform: rotate(225deg); }
+
+  /* =========================
+     CARROSSEL DE PRODUTOS (seta circular lateral, swipe no mobile)
+     ========================= */
+  .ml-rail-wrap{ @apply relative; }
+  .ml-rail{
+    @apply flex gap-6 overflow-x-auto scroll-smooth;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 6px;
+  }
+  .ml-rail-item{ scroll-snap-align: start; min-width: 210px; }
+  @media (max-width: 640px){ .ml-rail-item{ min-width: 70%; } }
+
+  .ml-arrow{
+    @apply hidden md:flex items-center justify-center;
+    position:absolute;
+    top:50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.95);
+    border: 1px solid var(--ml-border);
+    box-shadow: 0 10px 22px rgba(0,0,0,.14);
+    cursor:pointer;
+    user-select:none;
+  }
+  .ml-arrow.left{ left: -18px; }
+  .ml-arrow.right{ right: -18px; }
+  .ml-arrow::before{
+    content:"";
+    width: 10px; height: 10px;
+    border-top: 2px solid var(--go-text);
+    border-right: 2px solid var(--go-text);
+    transform: rotate(45deg);
+    display:block;
+  }
+  .ml-arrow.left::before{ transform: rotate(225deg); }
+
+  /* =========================
+     CARD DE PRODUTO ML-like
+     ========================= */
+  .ml-pimg{
+    border-radius: 8px;
+    border: 1px solid #f1f1f1;
+    overflow:hidden;
+    aspect-ratio: 1 / 1;
+    background: #fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .ml-ptitle{
+    margin-top: 10px;
+    font-size: 14px;
+    color: var(--go-text);
+    display:-webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow:hidden;
+    min-height: 40px;
+  }
+  .ml-price{
+    margin-top: 8px;
+    font-size: 30px;
+    font-weight: 300;
+    line-height: 1;
+  }
+  .ml-price-old{
+    font-size: 12px;
+    color: var(--go-muted);
+    text-decoration: line-through;
+  }
+  .ml-row{ margin-top: 6px; font-size: 13px; color: var(--go-muted); }
+  .ml-row-blue{ margin-top: 6px; font-size: 13px; color: var(--go-blue-strong); font-weight: 600; }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .ml-rail{ scroll-behavior: auto; }
+}

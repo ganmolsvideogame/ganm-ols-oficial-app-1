@@ -7,8 +7,8 @@ import PromoModal from "@/components/home/PromoModal";
 import QuickAccess from "@/components/home/QuickAccess";
 import LanceCard from "@/components/ui/LanceCard";
 import ProductCard from "@/components/ui/ProductCard";
-import SectionHeader from "@/components/ui/SectionHeader";
-import ShelfCarousel from "@/components/ui/ShelfCarousel";
+import { BannerCarousel } from "@/components/ml/BannerCarousel";
+import { ProductCarousel } from "@/components/ml/ProductCarousel";
 import { closeExpiredAuctions } from "@/lib/auctions";
 
 export const dynamic = "force-dynamic";
@@ -199,6 +199,12 @@ export default async function Home() {
     })
     .find((entry) => entry?.item?.image_url);
 
+  const banners = [
+    { id: "1", imageUrl: "/ganmolslogo.png", href: "/ofertas", alt: "Banner 1" },
+    { id: "2", imageUrl: "/ganmolslogo.png", href: "/leiloes", alt: "Banner 2" },
+    { id: "3", imageUrl: "/ganmolslogo.png", href: "/categorias", alt: "Banner 3" },
+  ];
+
   return (
     <div className="space-y-16">
       {modalEntry ? (
@@ -214,239 +220,199 @@ export default async function Home() {
         />
       ) : null}
 
-      <section className="relative overflow-hidden rounded-[32px] border border-zinc-200 bg-[radial-gradient(circle_at_top,_#f6f6f6,_#ffffff_70%)] p-8 shadow-sm md:p-12">
-        <div className="grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
-          <div className="space-y-6">
-            <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-              Marketplace gamer
+      <div className="ganm-ml-scope">
+        <div className="ml-container">
+          <div className="ml-stack">
+            <div className="ml-module ml-pad">
+              <BannerCarousel banners={banners} />
             </div>
-            <div className="space-y-4">
-              <h1 className="text-3xl font-semibold text-zinc-900 md:text-5xl">
-                Consoles, jogos e colecionaveis com curadoria retro.
-              </h1>
-              <p className="text-base text-zinc-600 md:text-lg">
-                Prateleiras organizadas para quem compra, vende e coleciona
-                tecnologia gamer. Descubra familias classicas e novidades.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Link
-                href="/leiloes"
-                className="rounded-full bg-zinc-900 px-6 py-3 text-sm font-semibold text-white"
-              >
-                Explorar lances
-              </Link>
-              <Link
-                href="/categorias"
-                className="rounded-full border border-zinc-200 px-6 py-3 text-sm font-semibold text-zinc-800"
-              >
-                Ver categorias
-              </Link>
-              <Link
-                href="/vender"
-                className="rounded-full border border-zinc-200 px-6 py-3 text-sm font-semibold text-zinc-800"
-              >
-                Quero vender
-              </Link>
-            </div>
-            <div className="flex flex-wrap gap-3 text-xs text-zinc-500">
-              <span className="rounded-full border border-zinc-200 px-3 py-1">
-                Curadoria premium
-              </span>
-              <span className="rounded-full border border-zinc-200 px-3 py-1">
-                Pagamentos seguros
-              </span>
-              <span className="rounded-full border border-zinc-200 px-3 py-1">
-                Comunidade retro
-              </span>
-            </div>
-          </div>
-          <div className="grid gap-4">
-            <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-                Destaque da semana
-              </p>
-              {weekOffer ? (
-                <>
-                  <h3 className="mt-2 text-lg font-semibold text-zinc-900">
-                    {weekOffer.title}
-                  </h3>
-                  <p className="mt-1 text-sm text-zinc-600">
-                    {weekOffer.description || "Oferta especial selecionada pela curadoria."}
+
+            <div className="ml-module ml-pad">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:items-center">
+                <div>
+                  <div className="ml-chip">Marketplace gamer</div>
+                  <h1 className="mt-4 text-3xl font-semibold tracking-tight text-zinc-900 md:text-5xl">
+                    Consoles, jogos e colecionaveis com curadoria retro.
+                  </h1>
+                  <p className="mt-3 text-base text-zinc-600 md:text-lg">
+                    Prateleiras organizadas para quem compra, vende e coleciona
+                    tecnologia gamer. Descubra familias classicas e novidades.
                   </p>
-                  <div className="mt-4 flex items-center justify-between">
-                    <span className="text-lg font-semibold text-zinc-900">
-                      {formatCentsToBRL(weekOffer.price_cents ?? 0)}
-                    </span>
-                    <Link
-                      href={`/produto/${weekOffer.id}`}
-                      className="rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold text-white"
-                    >
-                      Ver produto
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <Link href="/leiloes" className="ml-btn ml-btn-primary">
+                      Explorar lances
+                    </Link>
+                    <Link href="/categorias" className="ml-btn">
+                      Ver categorias
+                    </Link>
+                    <Link href="/vender" className="ml-btn">
+                      Quero vender
                     </Link>
                   </div>
-                </>
-              ) : (
-                <p className="mt-3 text-sm text-zinc-600">
-                  Ainda nao temos ofertas em destaque. Volte em breve.
-                </p>
-              )}
+                  <div className="mt-6 flex flex-wrap gap-2">
+                    <span className="ml-chip">Curadoria premium</span>
+                    <span className="ml-chip">Pagamentos seguros</span>
+                    <span className="ml-chip">Comunidade retro</span>
+                  </div>
+                </div>
+
+                <div className="hidden md:block">
+                  <div className="h-64 rounded-xl border border-gray-200 bg-gradient-to-br from-gray-50 to-gray-200" />
+                </div>
+              </div>
             </div>
-            <div className="rounded-3xl border border-zinc-900 bg-zinc-900 p-6 text-white shadow-lg">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-300">
-                Para vendedores
-              </p>
-              <h3 className="mt-2 text-lg font-semibold">
-                Publique em minutos com alto alcance.
-              </h3>
-              <p className="mt-2 text-sm text-zinc-200">
-                Dashboard completo para lances, anuncios e favoritos.
-              </p>
-              <Link
-                href="/vender"
-                className="mt-4 inline-flex rounded-full bg-white px-4 py-2 text-xs font-semibold text-zinc-900"
-              >
-                Comecar agora
-              </Link>
+
+            <div className="ml-module ml-pad">
+              <div className="ml-head">
+                <h2 className="ml-title">Acessos rapidos</h2>
+              </div>
+              <div className="mt-4">
+                <QuickAccess />
+              </div>
             </div>
+
+            <div className="ml-module ml-pad">
+              <div className="ml-head">
+                <h2 className="ml-title">Destaques da semana</h2>
+                <Link className="ml-headlink" href="/ofertas">
+                  Ver ofertas
+                </Link>
+              </div>
+              <div className="mt-4">
+                <ProductCarousel>
+                  {featuredListings.length === 0 ? (
+                    <div className="ml-rail-item">
+                      <div className="ml-tile p-4 text-sm text-zinc-500">
+                        Nenhum anuncio em destaque no momento.
+                      </div>
+                    </div>
+                  ) : (
+                    featuredListings.map((item) => (
+                      <div key={item.id} className="ml-rail-item">
+                        <ProductCard
+                          href={`/produto/${item.id}`}
+                          title={item.title}
+                          priceCents={item.price_cents}
+                          thumbnailUrl={item.thumbnail_url}
+                          badge="Destaque"
+                          platformLabel={
+                            item.platform ||
+                            familyLabelBySlug[item.family ?? ""] ||
+                            "Plataforma"
+                          }
+                          conditionLabel={formatConditionLabel(item.condition)}
+                          shippingLabel={formatShippingLabel(
+                            item.shipping_available,
+                            item.free_shipping
+                          )}
+                        />
+                      </div>
+                    ))
+                  )}
+                </ProductCarousel>
+              </div>
+            </div>
+
+            <div className="ml-module ml-pad">
+              <div className="ml-head">
+                <h2 className="ml-title">Lances em destaque</h2>
+                <Link className="ml-headlink" href="/leiloes">
+                  Ver todos
+                </Link>
+              </div>
+              <div className="mt-4">
+                <ProductCarousel>
+                  {auctions.length === 0 ? (
+                    <div className="ml-rail-item">
+                      <div className="ml-tile p-4 text-sm text-zinc-500">
+                        Nenhum lance programado ainda.
+                      </div>
+                    </div>
+                  ) : (
+                    auctions.map((auction) => (
+                      <div key={auction.id} className="ml-rail-item">
+                        <LanceCard
+                          href={`/produto/${auction.id}`}
+                          title={auction.title}
+                          priceCents={auction.price_cents}
+                          platformLabel={
+                            auction.platform ||
+                            familyLabelBySlug[auction.family ?? ""] ||
+                            "Plataforma"
+                          }
+                          statusLabel="Programado"
+                          tag="Destaque"
+                        />
+                      </div>
+                    ))
+                  )}
+                </ProductCarousel>
+              </div>
+            </div>
+
+            <div className="ml-module ml-pad">
+              <div className="ml-head">
+                <h2 className="ml-title">Plataformas</h2>
+                <Link className="ml-headlink" href="/categorias">
+                  Ver categorias
+                </Link>
+              </div>
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                {FAMILIES.map((family) => (
+                  <Link
+                    key={family.slug}
+                    href={`/marca/${family.slug}`}
+                    className="ml-tile flex items-center gap-3 p-3"
+                  >
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-gray-200 bg-gray-100 text-sm font-semibold text-zinc-700">
+                      {family.name.slice(0, 1)}
+                    </div>
+                    <div className="text-sm font-semibold text-zinc-900">
+                      {family.name}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {recentListings.length > 0 ? (
+              <div className="ml-module ml-pad" aria-label="Novos anuncios adicionados">
+                <div className="ml-head">
+                  <h2 className="ml-title">Novidades</h2>
+                  <Link className="ml-headlink" href="/ofertas">
+                    Ver mais
+                  </Link>
+                </div>
+                <div className="mt-4">
+                  <ProductCarousel>
+                    {recentListings.map((item) => (
+                      <div key={item.id} className="ml-rail-item">
+                        <ProductCard
+                          href={`/produto/${item.id}`}
+                          title={item.title}
+                          priceCents={item.price_cents}
+                          thumbnailUrl={item.thumbnail_url}
+                          badge="Novo"
+                          platformLabel={
+                            item.platform ||
+                            familyLabelBySlug[item.family ?? ""] ||
+                            "Plataforma"
+                          }
+                          conditionLabel={formatConditionLabel(item.condition)}
+                          shippingLabel={formatShippingLabel(
+                            item.shipping_available,
+                            item.free_shipping
+                          )}
+                        />
+                      </div>
+                    ))}
+                  </ProductCarousel>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
-      </section>
-
-      <QuickAccess />
-
-      <section className="space-y-6">
-        <SectionHeader
-          title="Destaques da semana"
-          subtitle="Produtos selecionados para colecionadores"
-          actionLabel="Ver ofertas"
-          actionHref="/ofertas"
-        />
-        <ShelfCarousel itemMinWidth={260}>
-          {featuredListings.length === 0 ? (
-            <div className="shelf-item rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
-              Nenhum anuncio em destaque no momento.
-            </div>
-          ) : (
-            featuredListings.map((item) => (
-              <div key={item.id} className="shelf-item">
-                <ProductCard
-                  href={`/produto/${item.id}`}
-                  title={item.title}
-                  priceCents={item.price_cents}
-                  thumbnailUrl={item.thumbnail_url}
-                  badge="Destaque"
-                  platformLabel={
-                    item.platform ||
-                    familyLabelBySlug[item.family ?? ""] ||
-                    "Plataforma"
-                  }
-                  conditionLabel={formatConditionLabel(item.condition)}
-                  shippingLabel={formatShippingLabel(
-                    item.shipping_available,
-                    item.free_shipping
-                  )}
-                />
-              </div>
-            ))
-          )}
-        </ShelfCarousel>
-      </section>
-
-      <section className="space-y-6">
-        <SectionHeader
-          title="Lances em destaque"
-          subtitle="Programacao de lances e edicoes especiais"
-          actionLabel="Ver todos"
-          actionHref="/leiloes"
-        />
-        <ShelfCarousel itemMinWidth={240}>
-          {auctions.length === 0 ? (
-            <div className="shelf-item rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
-              Nenhum lance programado ainda.
-            </div>
-          ) : (
-            auctions.map((auction) => (
-              <div key={auction.id} className="shelf-item">
-                <LanceCard
-                  href={`/produto/${auction.id}`}
-                  title={auction.title}
-                  priceCents={auction.price_cents}
-                  platformLabel={
-                    auction.platform ||
-                    familyLabelBySlug[auction.family ?? ""] ||
-                    "Plataforma"
-                  }
-                  statusLabel="Programado"
-                  tag="Destaque"
-                />
-              </div>
-            ))
-          )}
-        </ShelfCarousel>
-      </section>
-
-      <section className="space-y-6">
-        <SectionHeader
-          title="Plataformas"
-          subtitle="Explore por familia"
-          actionLabel="Ver categorias"
-          actionHref="/categorias"
-        />
-        <ShelfCarousel itemMinWidth={220}>
-          {FAMILIES.map((family) => (
-            <Link
-              key={family.slug}
-              href={`/marca/${family.slug}`}
-              className="shelf-item group rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-zinc-300"
-            >
-              <h3 className="text-sm font-semibold text-zinc-900">
-                {family.name}
-              </h3>
-              <p className="mt-2 text-xs text-zinc-600">
-                {family.description}
-              </p>
-              <span className="mt-4 inline-flex rounded-full border border-zinc-200 px-3 py-1 text-[11px] text-zinc-500">
-                Ver itens
-              </span>
-            </Link>
-          ))}
-        </ShelfCarousel>
-      </section>
-
-      {recentListings.length > 0 ? (
-        <section className="space-y-6" aria-label="Novos anuncios adicionados">
-          <SectionHeader
-            title="Novidades"
-            subtitle="Novos anuncios chegando agora"
-            actionLabel="Ver mais"
-            actionHref="/ofertas"
-          />
-          <ShelfCarousel itemMinWidth={260}>
-            {recentListings.map((item) => (
-              <div key={item.id} className="shelf-item">
-                <ProductCard
-                  href={`/produto/${item.id}`}
-                  title={item.title}
-                  priceCents={item.price_cents}
-                  thumbnailUrl={item.thumbnail_url}
-                  badge="Novo"
-                  platformLabel={
-                    item.platform ||
-                    familyLabelBySlug[item.family ?? ""] ||
-                    "Plataforma"
-                  }
-                  conditionLabel={formatConditionLabel(item.condition)}
-                  shippingLabel={formatShippingLabel(
-                    item.shipping_available,
-                    item.free_shipping
-                  )}
-                />
-              </div>
-            ))}
-          </ShelfCarousel>
-        </section>
-      ) : null}
+      </div>
     </div>
   );
 }
