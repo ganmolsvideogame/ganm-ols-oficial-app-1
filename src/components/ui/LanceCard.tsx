@@ -1,7 +1,6 @@
 import Link from "next/link";
 
-import Badge from "@/components/ui/Badge";
-import Price from "@/components/ui/Price";
+import { formatCentsToBRL } from "@/lib/utils/price";
 
 type LanceCardProps = {
   href: string;
@@ -23,28 +22,20 @@ export default function LanceCard({
   return (
     <Link
       href={href}
-      className="group flex h-full flex-col rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-md"
+      className="ml-tile block p-3"
     >
-      <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-zinc-400">
-        <span>{platformLabel || "GANM OLS"}</span>
-        {tag ? <Badge label={tag} /> : null}
-      </div>
-      <h3 className="mt-4 min-h-[2.2rem] text-sm font-semibold text-zinc-900">
-        {title}
-      </h3>
-      <div className="mt-4 flex items-center justify-between">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-400">
-            Lance atual
-          </p>
-          <Price cents={priceCents} size="md" />
+      <div className="ml-pcard">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="ml-badge">{platformLabel || "GANM OLS"}</span>
+          {tag ? <span className="ml-badge">{tag}</span> : null}
         </div>
-        <span className="rounded-full border border-zinc-200 px-3 py-1 text-[11px] font-semibold text-zinc-600">
-          {statusLabel}
-        </span>
-      </div>
-      <div className="mt-4 inline-flex items-center justify-center rounded-full border border-zinc-200 px-3 py-2 text-xs font-semibold text-zinc-700">
-        Dar lance
+        <div className="ml-ptitle">{title}</div>
+        <div className="ml-sub">Lance atual</div>
+        <div className="ml-price">{formatCentsToBRL(priceCents ?? 0)}</div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="ml-badge">{statusLabel}</span>
+          <span className="ml-badge">Dar lance</span>
+        </div>
       </div>
     </Link>
   );
