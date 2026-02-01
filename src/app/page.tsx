@@ -221,12 +221,14 @@ export default async function Home() {
       ) : null}
 
       <div className="ganm-ml-scope">
-        <div className="ml-container">
-          <div className="ml-stack">
+        <div className="ml-stack">
+          <div className="ml-container-wide">
             <div className="ml-module ml-pad">
               <BannerCarousel banners={banners} />
             </div>
+          </div>
 
+          <div className="ml-container">
             <div className="ml-module ml-pad">
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:items-center">
                 <div>
@@ -261,7 +263,9 @@ export default async function Home() {
                 </div>
               </div>
             </div>
+          </div>
 
+          <div className="ml-container">
             <div className="ml-module ml-pad">
               <div className="ml-head">
                 <h2 className="ml-title">Acessos rapidos</h2>
@@ -270,7 +274,9 @@ export default async function Home() {
                 <QuickAccess />
               </div>
             </div>
+          </div>
 
+          <div className="ml-container">
             <div className="ml-module ml-pad">
               <div className="ml-head">
                 <h2 className="ml-title">Destaques da semana</h2>
@@ -312,7 +318,9 @@ export default async function Home() {
                 </ProductCarousel>
               </div>
             </div>
+          </div>
 
+          <div className="ml-container">
             <div className="ml-module ml-pad">
               <div className="ml-head">
                 <h2 className="ml-title">Lances em destaque</h2>
@@ -349,7 +357,9 @@ export default async function Home() {
                 </ProductCarousel>
               </div>
             </div>
+          </div>
 
+          <div className="ml-container">
             <div className="ml-module ml-pad">
               <div className="ml-head">
                 <h2 className="ml-title">Plataformas</h2>
@@ -374,9 +384,11 @@ export default async function Home() {
                 ))}
               </div>
             </div>
+          </div>
 
-            {recentListings.length > 0 ? (
-              <div className="ml-module ml-pad" aria-label="Novos anuncios adicionados">
+          {recentListings.length > 0 ? (
+            <div className="ml-container" aria-label="Novos anuncios adicionados">
+              <div className="ml-module ml-pad">
                 <div className="ml-head">
                   <h2 className="ml-title">Novidades</h2>
                   <Link className="ml-headlink" href="/ofertas">
@@ -409,8 +421,8 @@ export default async function Home() {
                   </ProductCarousel>
                 </div>
               </div>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

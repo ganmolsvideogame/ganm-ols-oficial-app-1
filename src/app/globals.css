@@ -65,11 +65,30 @@ body {
 
 /* utilidades */
 @layer utilities{
-  .ml-container{ @apply w-full px-4 sm:px-6 lg:px-10; }
+  .ml-container{
+    width: min(1480px, calc(100% - 32px));
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  @media (min-width: 1536px){
+    .ml-container{
+      width: min(1600px, calc(100% - 64px));
+    }
+  }
+
+  .ml-container-wide{
+    width: calc(100% - 32px);
+    margin-left: auto;
+    margin-right: auto;
+  }
+  @media (min-width: 1024px){
+    .ml-container-wide{ width: calc(100% - 64px); }
+  }
 
   /* stack de módulos — ESSA é a chave pra não virar 1 bloco */
-  .ml-stack{ @apply py-4 sm:py-6; }
-  .ml-stack > * + *{ margin-top: 18px; } /* separação entre módulos */
+  .ml-stack{ padding: 18px 0; }
+  .ml-stack > * + *{ margin-top: 16px; } /* separação entre módulos */
 
   .ml-module{
     background: var(--ml-surface);
