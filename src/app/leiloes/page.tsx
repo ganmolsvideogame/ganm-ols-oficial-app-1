@@ -38,6 +38,29 @@ export default async function Page() {
 
   const auctions = (data ?? []) as AuctionRow[];
   const auctionIds = auctions.map((auction) => auction.id);
+  const { data: imagesData } =
+    auctionIds.length > 0
+      ? await supabase
+          .from("listing_images")
+          .select("listing_id, path, sort_order")
+          .in("listing_id", auctionIds)
+          .order("sort_order", { ascending: true })
+          .order("created_at", { ascending: true })
+      : { data: [] };
+
+  const imageByListing = new Map<string, string>();
+  (imagesData ?? []).forEach((row) => {
+    const listingId = String((row as { listing_id: string }).listing_id);
+    const path = (row as { path: string }).path;
+    if (!imageByListing.has(listingId) && path) {
+      const publicUrl = supabase.storage
+        .from("listing-images")
+        .getPublicUrl(path).data.publicUrl;
+      if (publicUrl) {
+        imageByListing.set(listingId, publicUrl);
+      }
+    }
+  });
   const { data: bidsData } =
     auctionIds.length > 0
       ? await supabase
@@ -100,20 +123,26 @@ export default async function Page() {
                 key={auction.id}
                 className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm"
               >
-                <div className="mb-4 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50">
-                  {auction.thumbnail_url ? (
-                    <img
-                      src={auction.thumbnail_url}
-                      alt={auction.title}
-                      className="h-48 w-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="flex h-48 items-center justify-center text-sm text-zinc-400">
-                      Sem imagem
+                {(() => {
+                  const imageUrl =
+                    auction.thumbnail_url || imageByListing.get(auction.id) || null;
+                  return (
+                    <div className="mb-4 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50">
+                      {imageUrl ? (
+                        <img
+                          src={imageUrl}
+                          alt={auction.title}
+                          className="h-48 w-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="flex h-48 items-center justify-center text-sm text-zinc-400">
+                          Sem imagem
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  );
+                })()}
                 <div className="flex items-center justify-between text-xs text-zinc-500">
                   <span className="rounded-full border border-zinc-200 px-3 py-1">
                     {auction.platform || "Sem plataforma"}
