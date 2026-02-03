@@ -106,7 +106,7 @@ export async function POST(request: Request) {
   }
 
   if (action === "create_item") {
-    const sectionId = String(formData.get("section_id") ?? "").trim();
+    let sectionId = String(formData.get("section_id") ?? "").trim();
     const title = String(formData.get("title") ?? "").trim();
     const imageFile = formData.get("image");
     const href = String(formData.get("href") ?? "").trim();
@@ -118,9 +118,41 @@ export async function POST(request: Request) {
     const endsAtRaw = String(formData.get("ends_at") ?? "").trim();
 
     if (!sectionId) {
-      return buildRedirect(request, ADMIN_PATHS.content, {
-        error: "Selecione uma secao",
-      });
+      const { data: existingSection, error: sectionFetchError } = await supabase
+        .from("home_sections")
+        .select("id")
+        .eq("slug", "home-banners")
+        .maybeSingle();
+      if (sectionFetchError) {
+        return buildRedirect(request, ADMIN_PATHS.content, {
+          error: sectionFetchError.message,
+        });
+      }
+
+      if (existingSection?.id) {
+        sectionId = existingSection.id;
+      } else {
+        const { data: createdSection, error: createSectionError } = await supabase
+          .from("home_sections")
+          .insert({
+            slug: "home-banners",
+            title: "Banners principais",
+            description: null,
+            section_type: "banner",
+            position: 0,
+            is_active: true,
+          })
+          .select("id")
+          .single();
+
+        if (createSectionError || !createdSection?.id) {
+          return buildRedirect(request, ADMIN_PATHS.content, {
+            error: createSectionError?.message || "Nao foi possivel criar a secao",
+          });
+        }
+
+        sectionId = createdSection.id;
+      }
     }
 
     if (!(imageFile instanceof File) || imageFile.size === 0) {
