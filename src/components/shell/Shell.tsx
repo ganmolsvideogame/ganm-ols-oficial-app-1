@@ -8,7 +8,7 @@ type ShellProps = {
 
 export default function Shell({ children }: ShellProps) {
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#f4f4f5,_#ffffff_70%)] text-zinc-900">
+    <div className="min-h-screen bg-white text-zinc-900">
       <Header />
       <main className="w-full px-0 pb-24 pt-6 md:pb-12 md:pt-8">
         {children}

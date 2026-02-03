@@ -67,21 +67,21 @@ body {
 @layer utilities{
   .ml-container{
     width: 100%;
-    padding-left: 0;
-    padding-right: 0;
+    padding-left: 12px;
+    padding-right: 12px;
   }
 
   @media (min-width: 1024px){
     .ml-container{
-      padding-left: 0;
-      padding-right: 0;
+      padding-left: 16px;
+      padding-right: 16px;
     }
   }
 
   @media (min-width: 1536px){
     .ml-container{
-      padding-left: 0;
-      padding-right: 0;
+      padding-left: 20px;
+      padding-right: 20px;
     }
   }
 
@@ -107,7 +107,8 @@ body {
     border-radius: 0;
     box-shadow: none;
   }
-  .ml-pad{ @apply p-0; }
+  .ml-pad{ @apply p-4 sm:p-6; }
+  .ml-pad-0{ @apply p-0; }
 
   .ml-head{ @apply flex items-center justify-between gap-3; }
   .ml-title{ @apply text-lg sm:text-xl font-semibold tracking-tight; }
