@@ -5,6 +5,7 @@ type LanceCardProps = {
   href: string;
   title: string;
   priceCents: number | null;
+  thumbnailUrl?: string | null;
   platformLabel?: string | null;
   statusLabel?: string;
   tag?: string;
@@ -14,6 +15,7 @@ export default function LanceCard({
   href,
   title,
   priceCents,
+  thumbnailUrl,
   platformLabel,
   statusLabel = "Aberto para lances",
   tag,
@@ -21,6 +23,18 @@ export default function LanceCard({
   return (
     <Link href={href} className="block">
       <div>
+        <div className="ml-pimg">
+          {thumbnailUrl ? (
+            <img
+              src={thumbnailUrl}
+              alt={title}
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="text-xs text-zinc-400">Sem imagem</div>
+          )}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="ml-chip">{platformLabel || "GANM OLS"}</span>
           {tag ? <span className="ml-chip">{tag}</span> : null}

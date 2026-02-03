@@ -32,6 +32,7 @@ type AuctionCard = {
   price_cents: number | null;
   family: string | null;
   platform: string | null;
+  thumbnail_url: string | null;
   created_at: string | null;
 };
 
@@ -134,7 +135,7 @@ export default async function Home() {
 
   const { data: auctionData } = await supabase
     .from("listings_with_boost")
-    .select("id, title, price_cents, family, platform, created_at")
+    .select("id, title, price_cents, family, platform, created_at, thumbnail_url")
     .in("status", ["active", "paused"])
     .or("moderation_status.eq.approved,moderation_status.eq.pending,moderation_status.is.null")
     .eq("listing_type", "auction")
@@ -367,15 +368,16 @@ export default async function Home() {
                   ) : (
                     auctions.map((auction) => (
                       <div key={auction.id} className="ml-rail-item">
-                        <LanceCard
-                          href={`/produto/${auction.id}`}
-                          title={auction.title}
-                          priceCents={auction.price_cents}
-                          platformLabel={
-                            auction.platform ||
-                            familyLabelBySlug[auction.family ?? ""] ||
-                            "Plataforma"
-                          }
+                      <LanceCard
+                        href={`/produto/${auction.id}`}
+                        title={auction.title}
+                        priceCents={auction.price_cents}
+                        thumbnailUrl={auction.thumbnail_url}
+                        platformLabel={
+                          auction.platform ||
+                          familyLabelBySlug[auction.family ?? ""] ||
+                          "Plataforma"
+                        }
                           statusLabel="Programado"
                           tag="Destaque"
                         />
