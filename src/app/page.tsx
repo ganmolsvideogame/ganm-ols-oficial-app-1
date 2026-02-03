@@ -282,7 +282,7 @@ export default async function Home() {
                 <div>
                   <div className="ml-chip">Marketplace gamer</div>
                   <h1 className="mt-4 text-3xl font-semibold tracking-tight text-zinc-900 md:text-5xl">
-                    Consoles, jogos e colecionaveis com curadoria retro.
+                    Consoles, jogos e colecionaveis.
                   </h1>
                   <p className="mt-3 text-base text-zinc-600 md:text-lg">
                     Prateleiras organizadas para quem compra, vende e coleciona
@@ -300,7 +300,6 @@ export default async function Home() {
                     </Link>
                   </div>
                   <div className="mt-6 flex flex-wrap gap-2">
-                    <span className="ml-chip">Curadoria premium</span>
                     <span className="ml-chip">Pagamentos seguros</span>
                     <span className="ml-chip">Comunidade retro</span>
                   </div>
