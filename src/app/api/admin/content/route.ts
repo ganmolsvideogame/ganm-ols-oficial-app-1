@@ -107,6 +107,7 @@ export async function POST(request: Request) {
 
   if (action === "create_item") {
     let sectionId = String(formData.get("section_id") ?? "").trim();
+    const sectionType = String(formData.get("section_type") ?? "banner").trim();
     const title = String(formData.get("title") ?? "").trim();
     const imageFile = formData.get("image");
     const href = String(formData.get("href") ?? "").trim();
@@ -118,10 +119,23 @@ export async function POST(request: Request) {
     const endsAtRaw = String(formData.get("ends_at") ?? "").trim();
 
     if (!sectionId) {
+      const resolvedSlug =
+        sectionType === "modal"
+          ? "home-modal"
+          : sectionType === "cards"
+            ? "home-cards"
+            : "home-banners";
+      const resolvedTitle =
+        sectionType === "modal"
+          ? "Popups"
+          : sectionType === "cards"
+            ? "Cards"
+            : "Banners principais";
+
       const { data: existingSection, error: sectionFetchError } = await supabase
         .from("home_sections")
         .select("id")
-        .eq("slug", "home-banners")
+        .eq("slug", resolvedSlug)
         .maybeSingle();
       if (sectionFetchError) {
         return buildRedirect(request, ADMIN_PATHS.content, {
@@ -135,10 +149,10 @@ export async function POST(request: Request) {
         const { data: createdSection, error: createSectionError } = await supabase
           .from("home_sections")
           .insert({
-            slug: "home-banners",
-            title: "Banners principais",
+            slug: resolvedSlug,
+            title: resolvedTitle,
             description: null,
-            section_type: "banner",
+            section_type: sectionType || "banner",
             position: 0,
             is_active: true,
           })

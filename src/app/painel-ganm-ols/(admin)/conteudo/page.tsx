@@ -96,8 +96,11 @@ export default async function Page({ searchParams }: PageProps) {
 
   const sections = (sectionsData ?? []) as SectionRow[];
   const items = (itemsData ?? []) as ItemRow[];
-  const bannerSections = sections.filter((section) => section.section_type === "banner");
-  const activeBannerSection = bannerSections[0];
+  const sectionByType = (type: string) =>
+    sections.find((section) => section.section_type === type);
+  const bannerItems = items.filter((item) =>
+    sections.some((section) => section.id === item.section_id)
+  );
 
   return (
     <main className="space-y-8">
@@ -124,8 +127,8 @@ export default async function Page({ searchParams }: PageProps) {
           </div>
         </div>
         <p className="mt-3 text-sm text-zinc-500">
-          Os banners aparecem logo abaixo do cabecalho. Voce pode alterar imagem,
-          link e titulo. As secoes sao gerenciadas automaticamente.
+          Escolha o tipo correto para controlar onde o banner aparece. A secao
+          correspondente sera criada automaticamente se ainda nao existir.
         </p>
         <form
           action="/api/admin/content"
@@ -134,7 +137,21 @@ export default async function Page({ searchParams }: PageProps) {
           className="mt-4 grid gap-3 md:grid-cols-3"
         >
           <input type="hidden" name="action" value="create_item" />
-          <input type="hidden" name="section_id" value={activeBannerSection?.id ?? ""} />
+          <div className="space-y-2 md:col-span-2">
+            <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+              Tipo de banner
+            </label>
+            <select
+              name="section_type"
+              className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
+              defaultValue="banner"
+              required
+            >
+              <option value="banner">Home (topo)</option>
+              <option value="modal">Popup</option>
+              <option value="cards">Cards</option>
+            </select>
+          </div>
           <div className="space-y-2">
             <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
               Posicao
@@ -240,18 +257,18 @@ export default async function Page({ searchParams }: PageProps) {
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-zinc-900">Banners atuais</h2>
           <span className="text-sm text-zinc-500">
-            Total: {items.filter((item) => bannerSections.some((s) => s.id === item.section_id)).length}
+            Total: {bannerItems.length}
           </span>
         </div>
         <div className="grid gap-3">
-          {items.filter((item) => bannerSections.some((s) => s.id === item.section_id)).length === 0 ? (
+          {bannerItems.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
               Nenhum banner cadastrado.
             </div>
           ) : (
-            items
-              .filter((item) => bannerSections.some((s) => s.id === item.section_id))
-              .map((item) => (
+            bannerItems.map((item) => {
+              const section = sections.find((entry) => entry.id === item.section_id);
+              return (
                 <div
                   key={item.id}
                   className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-xs text-zinc-600 shadow-sm"
@@ -267,6 +284,9 @@ export default async function Page({ searchParams }: PageProps) {
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
                         {item.title || "Sem titulo"}
+                      </p>
+                      <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-zinc-400">
+                        Tipo: {section?.section_type || "manual"}
                       </p>
                       <p className="mt-1">
                         {item.image_url ? "Imagem enviada" : "Sem imagem"}
@@ -293,7 +313,8 @@ export default async function Page({ searchParams }: PageProps) {
                     </form>
                   </div>
                 </div>
-              ))
+              );
+            })
           )}
         </div>
       </section>
