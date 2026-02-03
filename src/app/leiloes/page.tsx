@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { formatCentsToBRL } from "@/lib/utils/price";
 import { closeExpiredAuctions } from "@/lib/auctions";
 import {
@@ -22,7 +22,7 @@ type AuctionRow = {
 };
 
 export default async function Page() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   await closeExpiredAuctions();
   const { data } = await supabase
     .from("listings_with_boost")

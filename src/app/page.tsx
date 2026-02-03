@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { FAMILIES } from "@/lib/mock/data";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { formatCentsToBRL } from "@/lib/utils/price";
 import PromoModal from "@/components/home/PromoModal";
 import QuickAccess from "@/components/home/QuickAccess";
@@ -106,12 +107,13 @@ function formatShippingLabel(
 
 export default async function Home() {
   const supabase = await createClient();
+  const admin = createAdminClient();
   await closeExpiredAuctions();
   const familyLabelBySlug = Object.fromEntries(
     FAMILIES.map((family) => [family.slug, family.name])
   );
 
-  const { data: featuredData } = await supabase
+  const { data: featuredData } = await admin
     .from("listings_with_boost")
     .select(
       "id, title, price_cents, condition, family, platform, shipping_available, free_shipping, thumbnail_url"
@@ -123,7 +125,7 @@ export default async function Home() {
     .order("created_at", { ascending: false })
     .limit(6);
 
-  const { data: weekOfferData } = await supabase
+  const { data: weekOfferData } = await admin
     .from("listings_with_boost")
     .select("id, title, price_cents, description, platform")
     .in("status", ["active", "paused"])
@@ -133,7 +135,7 @@ export default async function Home() {
     .order("created_at", { ascending: false })
     .limit(1);
 
-  const { data: auctionData } = await supabase
+  const { data: auctionData } = await admin
     .from("listings_with_boost")
     .select("id, title, price_cents, family, platform, created_at, thumbnail_url")
     .in("status", ["active", "paused"])
@@ -143,7 +145,7 @@ export default async function Home() {
     .order("created_at", { ascending: false })
     .limit(6);
 
-  const { data: recentData } = await supabase
+  const { data: recentData } = await admin
     .from("listings_with_boost")
     .select(
       "id, title, price_cents, condition, family, platform, shipping_available, free_shipping, thumbnail_url"
