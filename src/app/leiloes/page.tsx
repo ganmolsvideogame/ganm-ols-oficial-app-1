@@ -29,8 +29,8 @@ export default async function Page() {
     .select(
       "id, title, price_cents, platform, family, created_at, auction_increment_percent, auction_end_at"
     )
-    .eq("status", "active")
-    .eq("moderation_status", "approved")
+    .in("status", ["active", "paused"])
+    .or("moderation_status.eq.approved,moderation_status.eq.pending,moderation_status.is.null")
     .eq("listing_type", "auction")
     .order("boost_priority", { ascending: false })
     .order("created_at", { ascending: false });
