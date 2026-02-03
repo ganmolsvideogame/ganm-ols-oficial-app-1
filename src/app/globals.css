@@ -66,25 +66,15 @@ body {
 /* utilidades */
 @layer utilities{
   .ml-container{
-    width: min(1480px, calc(100% - 32px));
-    margin-left: auto;
-    margin-right: auto;
+    width: calc(100% - 24px);\n    margin-left: auto;\n    margin-right: auto;
   }
 
-  @media (min-width: 1536px){
-    .ml-container{
-      width: min(1600px, calc(100% - 64px));
-    }
-  }
+  @media (min-width: 1536px){\n    .ml-container{\n      width: calc(100% - 48px);\n    }\n  }
 
   .ml-container-wide{
-    width: calc(100% - 32px);
-    margin-left: auto;
-    margin-right: auto;
+    width: calc(100% - 16px);\n    margin-left: auto;\n    margin-right: auto;
   }
-  @media (min-width: 1024px){
-    .ml-container-wide{ width: calc(100% - 64px); }
-  }
+  @media (min-width: 1024px){\n    .ml-container-wide{ width: calc(100% - 32px); }\n  }
 
   /* stack de módulos — ESSA é a chave pra não virar 1 bloco */
   .ml-stack{ padding: 18px 0; }
@@ -305,3 +295,4 @@ body {
 @media (prefers-reduced-motion: reduce){
   .ml-rail{ scroll-behavior: auto; }
 }
+
