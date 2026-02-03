@@ -102,12 +102,12 @@ body {
   .ml-stack > * + *{ margin-top: 16px; } 
 
   .ml-module{
-    background: var(--ml-surface);
-    border: 1px solid var(--ml-border);
-    border-radius: var(--ml-radius);
-    box-shadow: var(--ml-shadow);
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
   }
-  .ml-pad{ @apply p-4 sm:p-6; }
+  .ml-pad{ @apply p-0; }
 
   .ml-head{ @apply flex items-center justify-between gap-3; }
   .ml-title{ @apply text-lg sm:text-xl font-semibold tracking-tight; }
@@ -163,10 +163,10 @@ body {
      BANNER/CARROSSEL (com bolinhas)
      ========================= */
   .ml-banner{
-    border-radius: 14px;
+    border-radius: 0;
     overflow: hidden;
-    border: 1px solid var(--ml-border);
-    background: #f6f6f6;
+    border: none;
+    background: #ffffff;
     position: relative;
   }
   .ml-banner-slide{
@@ -316,6 +316,7 @@ body {
 @media (prefers-reduced-motion: reduce){
   .ml-rail{ scroll-behavior: auto; }
 }
+
 
 
 
