@@ -43,6 +43,12 @@ type ItemRow = {
   created_at: string | null;
 };
 
+type CategoryRow = {
+  id: string;
+  slug: string;
+  name: string;
+};
+
 function formatDate(value: string | null) {
   if (!value) {
     return "Sem data";
@@ -94,12 +100,21 @@ export default async function Page({ searchParams }: PageProps) {
     .order("position", { ascending: true })
     .order("created_at", { ascending: false });
 
+  const { data: categoriesData } = await supabase
+    .from("categories")
+    .select("id, slug, name")
+    .order("name", { ascending: true });
+
   const sections = (sectionsData ?? []) as SectionRow[];
   const items = (itemsData ?? []) as ItemRow[];
+  const categories = (categoriesData ?? []) as CategoryRow[];
   const sectionByType = (type: string) =>
     sections.find((section) => section.section_type === type);
   const bannerItems = items.filter((item) =>
     sections.some((section) => section.id === item.section_id)
+  );
+  const categorySections = sections.filter(
+    (section) => section.section_type === "category"
   );
 
   return (
@@ -129,6 +144,7 @@ export default async function Page({ searchParams }: PageProps) {
         <p className="mt-3 text-sm text-zinc-500">
           Escolha o tipo correto para controlar onde o banner aparece. A secao
           correspondente sera criada automaticamente se ainda nao existir.
+          Deixe datas vazias para tempo indefinido.
         </p>
         <form
           action="/api/admin/content"
@@ -253,6 +269,117 @@ export default async function Page({ searchParams }: PageProps) {
         </form>
       </section>
 
+      <section className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+              Categorias
+            </p>
+            <h2 className="mt-2 text-lg font-semibold text-zinc-900">
+              Banner por categoria
+            </h2>
+          </div>
+        </div>
+        <p className="mt-3 text-sm text-zinc-500">
+          Configure o banner e a copy da pagina principal de cada categoria.
+          Deixe datas vazias para tempo indefinido.
+        </p>
+        <form
+          action="/api/admin/content"
+          method="post"
+          encType="multipart/form-data"
+          className="mt-4 grid gap-3 md:grid-cols-3"
+        >
+          <input type="hidden" name="action" value="create_category_banner" />
+          <div className="space-y-2 md:col-span-2">
+            <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+              Categoria
+            </label>
+            <select
+              name="category_slug"
+              className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
+              required
+              defaultValue=""
+            >
+              <option value="" disabled>
+                Selecione a categoria
+              </option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.slug}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+              Link do banner
+            </label>
+            <input
+              name="href"
+              placeholder="https://"
+              className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
+            />
+          </div>
+          <div className="space-y-2 md:col-span-2">
+            <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+              Titulo (copy)
+            </label>
+            <input
+              name="title"
+              placeholder="Titulo da categoria"
+              className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+              Descricao (copy)
+            </label>
+            <input
+              name="description"
+              placeholder="Descricao da categoria"
+              className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
+            />
+          </div>
+          <div className="md:col-span-3">
+            <ImageUploadField
+              name="image"
+              label="Imagem do banner"
+              helperText="Envie o banner que sera exibido na pagina da categoria."
+              multiple={false}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+              Inicio
+            </label>
+            <input
+              name="starts_at"
+              type="datetime-local"
+              className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+              Fim
+            </label>
+            <input
+              name="ends_at"
+              type="datetime-local"
+              className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
+            />
+          </div>
+          <div className="md:col-span-3">
+            <button
+              type="submit"
+              className="rounded-full bg-zinc-900 px-6 py-3 text-sm font-semibold text-white"
+            >
+              Salvar banner da categoria
+            </button>
+          </div>
+        </form>
+      </section>
+
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-zinc-900">Banners atuais</h2>
@@ -304,6 +431,70 @@ export default async function Page({ searchParams }: PageProps) {
                     <form action="/api/admin/content" method="post" className="mt-2">
                       <input type="hidden" name="item_id" value={item.id} />
                       <input type="hidden" name="action" value="delete_item" />
+                      <button
+                        type="submit"
+                        className="rounded-full border border-rose-200 px-3 py-1 text-xs font-semibold text-rose-700"
+                      >
+                        Excluir banner
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-zinc-900">
+            Banners por categoria
+          </h2>
+          <span className="text-sm text-zinc-500">
+            Total: {categorySections.length}
+          </span>
+        </div>
+        <div className="grid gap-3">
+          {categorySections.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+              Nenhum banner de categoria cadastrado.
+            </div>
+          ) : (
+            categorySections.map((section) => {
+              const item = items.find((entry) => entry.section_id === section.id);
+              return (
+                <div
+                  key={section.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-xs text-zinc-600 shadow-sm"
+                >
+                  <div className="flex items-start gap-3">
+                    {item?.image_url ? (
+                      <img
+                        src={item.image_url}
+                        alt={section.title || "Banner"}
+                        className="h-16 w-16 rounded-2xl border border-zinc-200 object-cover"
+                      />
+                    ) : null}
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                        {section.title || section.slug}
+                      </p>
+                      <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-zinc-400">
+                        {section.slug}
+                      </p>
+                      <p className="mt-1">
+                        {section.description || "Sem descricao"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right text-xs text-zinc-500">
+                    <p>
+                      {formatDate(section.starts_at)} - {formatDate(section.ends_at)}
+                    </p>
+                    <form action="/api/admin/content" method="post" className="mt-2">
+                      <input type="hidden" name="section_id" value={section.id} />
+                      <input type="hidden" name="action" value="delete_category_banner" />
                       <button
                         type="submit"
                         className="rounded-full border border-rose-200 px-3 py-1 text-xs font-semibold text-rose-700"

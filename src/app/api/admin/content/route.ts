@@ -321,6 +321,154 @@ export async function POST(request: Request) {
     });
   }
 
+  if (action === "create_category_banner") {
+    const categorySlug = String(formData.get("category_slug") ?? "").trim();
+    const title = String(formData.get("title") ?? "").trim();
+    const description = String(formData.get("description") ?? "").trim();
+    const href = String(formData.get("href") ?? "").trim();
+    const imageFile = formData.get("image");
+    const startsAtRaw = String(formData.get("starts_at") ?? "").trim();
+    const endsAtRaw = String(formData.get("ends_at") ?? "").trim();
+
+    if (!categorySlug) {
+      return buildRedirect(request, ADMIN_PATHS.content, {
+        error: "Selecione a categoria",
+      });
+    }
+
+    if (!(imageFile instanceof File) || imageFile.size === 0) {
+      return buildRedirect(request, ADMIN_PATHS.content, {
+        error: "Envie a imagem do banner",
+      });
+    }
+
+    const sectionSlug = `category-${categorySlug}`;
+    const { data: existingSection, error: sectionFetchError } = await supabase
+      .from("home_sections")
+      .select("id")
+      .eq("slug", sectionSlug)
+      .maybeSingle();
+
+    if (sectionFetchError) {
+      return buildRedirect(request, ADMIN_PATHS.content, {
+        error: sectionFetchError.message,
+      });
+    }
+
+    let sectionId = existingSection?.id;
+    if (!sectionId) {
+      const { data: createdSection, error: createSectionError } = await supabase
+        .from("home_sections")
+        .insert({
+          slug: sectionSlug,
+          title: title || null,
+          description: description || null,
+          section_type: "category",
+          position: 0,
+          is_active: true,
+          starts_at: parseDateValue(startsAtRaw),
+          ends_at: parseDateValue(endsAtRaw),
+        })
+        .select("id")
+        .single();
+
+      if (createSectionError || !createdSection?.id) {
+        return buildRedirect(request, ADMIN_PATHS.content, {
+          error: createSectionError?.message || "Nao foi possivel criar a secao",
+        });
+      }
+
+      sectionId = createdSection.id;
+    } else {
+      await supabase
+        .from("home_sections")
+        .update({
+          title: title || null,
+          description: description || null,
+          is_active: true,
+          starts_at: parseDateValue(startsAtRaw),
+          ends_at: parseDateValue(endsAtRaw),
+        })
+        .eq("id", sectionId);
+    }
+
+    const extensionMatch = imageFile.name.toLowerCase().match(/\.([a-z0-9]+)$/);
+    const extension = extensionMatch ? extensionMatch[1] : "jpg";
+    const path = `home/${sectionId}/${randomUUID()}.${extension}`;
+    const buffer = new Uint8Array(await imageFile.arrayBuffer());
+
+    const { error: uploadError } = await supabase.storage
+      .from("home-banners")
+      .upload(path, buffer, {
+        contentType: imageFile.type || "image/jpeg",
+        upsert: false,
+      });
+
+    if (uploadError) {
+      return buildRedirect(request, ADMIN_PATHS.content, {
+        error: uploadError.message,
+      });
+    }
+
+    const publicUrl = supabase.storage.from("home-banners").getPublicUrl(path).data
+      .publicUrl;
+
+    await supabase.from("home_items").delete().eq("section_id", sectionId);
+
+    const { error: itemError } = await supabase.from("home_items").insert({
+      section_id: sectionId,
+      title: title || null,
+      image_url: publicUrl || null,
+      href: href || null,
+      position: 0,
+      starts_at: parseDateValue(startsAtRaw),
+      ends_at: parseDateValue(endsAtRaw),
+    });
+
+    if (itemError) {
+      return buildRedirect(request, ADMIN_PATHS.content, {
+        error: itemError.message,
+      });
+    }
+
+    await supabase.from("admin_audit_logs").insert({
+      actor_id: user.id,
+      action: "category_banner_saved",
+      target_type: "home_section",
+      target_id: sectionId,
+      details: { slug: sectionSlug },
+    });
+
+    return buildRedirect(request, ADMIN_PATHS.content, {
+      success: "Banner da categoria salvo",
+    });
+  }
+
+  if (action === "delete_category_banner") {
+    const sectionId = String(formData.get("section_id") ?? "").trim();
+    if (!sectionId) {
+      return buildRedirect(request, ADMIN_PATHS.content, {
+        error: "Secao invalida",
+      });
+    }
+
+    await supabase.from("home_items").delete().eq("section_id", sectionId);
+    const { error } = await supabase
+      .from("home_sections")
+      .delete()
+      .eq("id", sectionId);
+
+    if (error) {
+      return buildRedirect(request, ADMIN_PATHS.content, {
+        error: error.message,
+      });
+    }
+
+    return buildRedirect(request, ADMIN_PATHS.content, {
+      success: "Banner da categoria removido",
+    });
+  }
+
   return buildRedirect(request, ADMIN_PATHS.content, {
     error: "Acao desconhecida",
   });

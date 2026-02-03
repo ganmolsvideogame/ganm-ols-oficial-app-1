@@ -26,6 +26,30 @@ export default async function Page({ params }: PageProps) {
   const supabase = await createClient();
   const family = FAMILIES.find((item) => item.slug === params.slug);
   const subcategories = SUBCATEGORIES[params.slug] ?? [];
+  const now = new Date();
+
+  const { data: categorySection } = await supabase
+    .from("home_sections")
+    .select("id, title, description, starts_at, ends_at, is_active")
+    .eq("slug", `category-${params.slug}`)
+    .eq("section_type", "category")
+    .maybeSingle();
+
+  const showCategorySection =
+    categorySection?.is_active !== false &&
+    (!categorySection?.starts_at || new Date(categorySection.starts_at) <= now) &&
+    (!categorySection?.ends_at || new Date(categorySection.ends_at) >= now);
+
+  const { data: categoryItems } = showCategorySection && categorySection?.id
+    ? await supabase
+        .from("home_items")
+        .select("id, image_url, href")
+        .eq("section_id", categorySection.id)
+        .order("position", { ascending: true })
+        .limit(1)
+    : { data: [] };
+
+  const categoryBanner = (categoryItems ?? [])[0];
 
   let listingQuery = supabase
     .from("listings_with_boost")
@@ -51,15 +75,36 @@ export default async function Page({ params }: PageProps) {
 
   return (
     <div className="space-y-8">
+      {categoryBanner?.image_url ? (
+        <div className="overflow-hidden">
+          {categoryBanner.href ? (
+            <Link href={categoryBanner.href}>
+              <img
+                src={categoryBanner.image_url}
+                alt={categorySection?.title || family?.name || "Banner"}
+                className="w-full object-cover"
+              />
+            </Link>
+          ) : (
+            <img
+              src={categoryBanner.image_url}
+              alt={categorySection?.title || family?.name || "Banner"}
+              className="w-full object-cover"
+            />
+          )}
+        </div>
+      ) : null}
+
       <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
           Plataforma
         </p>
         <h1 className="mt-2 text-2xl font-semibold text-zinc-900">
-          {family?.name ?? "Plataforma nao encontrada"}
+          {categorySection?.title || family?.name || "Plataforma nao encontrada"}
         </h1>
         <p className="mt-2 text-sm text-zinc-600">
-          {family?.description ??
+          {categorySection?.description ||
+            family?.description ||
             "Veja outras familias e encontre seus consoles favoritos."}
         </p>
       </div>
