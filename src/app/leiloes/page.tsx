@@ -16,6 +16,7 @@ type AuctionRow = {
   price_cents: number | null;
   platform: string | null;
   family: string | null;
+  thumbnail_url: string | null;
   created_at: string | null;
   auction_increment_percent: number | null;
   auction_end_at: string | null;
@@ -27,7 +28,7 @@ export default async function Page() {
   const { data } = await supabase
     .from("listings_with_boost")
     .select(
-      "id, title, price_cents, platform, family, created_at, auction_increment_percent, auction_end_at"
+      "id, title, price_cents, platform, family, created_at, auction_increment_percent, auction_end_at, thumbnail_url"
     )
     .in("status", ["active", "paused"])
     .or("moderation_status.eq.approved,moderation_status.eq.pending,moderation_status.is.null")
@@ -99,6 +100,20 @@ export default async function Page() {
                 key={auction.id}
                 className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm"
               >
+                <div className="mb-4 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50">
+                  {auction.thumbnail_url ? (
+                    <img
+                      src={auction.thumbnail_url}
+                      alt={auction.title}
+                      className="h-48 w-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="flex h-48 items-center justify-center text-sm text-zinc-400">
+                      Sem imagem
+                    </div>
+                  )}
+                </div>
                 <div className="flex items-center justify-between text-xs text-zinc-500">
                   <span className="rounded-full border border-zinc-200 px-3 py-1">
                     {auction.platform || "Sem plataforma"}
