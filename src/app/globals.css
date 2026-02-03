@@ -66,19 +66,40 @@ body {
 /* utilidades */
 @layer utilities{
   .ml-container{
-    width: calc(100% - 24px);\n    margin-left: auto;\n    margin-right: auto;
+    width: 100%;
+    padding-left: 12px;
+    padding-right: 12px;
   }
 
-  @media (min-width: 1536px){\n    .ml-container{\n      width: calc(100% - 48px);\n    }\n  }
+  @media (min-width: 1024px){
+    .ml-container{
+      padding-left: 20px;
+      padding-right: 20px;
+    }
+  }
+
+  @media (min-width: 1536px){
+    .ml-container{
+      padding-left: 28px;
+      padding-right: 28px;
+    }
+  }
 
   .ml-container-wide{
-    width: calc(100% - 16px);\n    margin-left: auto;\n    margin-right: auto;
+    width: 100%;
+    padding-left: 8px;
+    padding-right: 8px;
   }
-  @media (min-width: 1024px){\n    .ml-container-wide{ width: calc(100% - 32px); }\n  }
+  @media (min-width: 1024px){
+    .ml-container-wide{
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+  }
 
-  /* stack de módulos — ESSA é a chave pra não virar 1 bloco */
+  /* Module stack spacing (prevents a single giant block). */
   .ml-stack{ padding: 18px 0; }
-  .ml-stack > * + *{ margin-top: 16px; } /* separação entre módulos */
+  .ml-stack > * + *{ margin-top: 16px; } 
 
   .ml-module{
     background: var(--ml-surface);
@@ -295,4 +316,5 @@ body {
 @media (prefers-reduced-motion: reduce){
   .ml-rail{ scroll-behavior: auto; }
 }
+
 
