@@ -1759,3 +1759,17 @@ drop trigger if exists home_item_deleted_event on public.home_items;
 create trigger home_item_deleted_event
 after delete on public.home_items
 for each row execute function public.trg_home_item_deleted();
+-- Seller payment accounts (marketplace OAuth)
+create table if not exists public.seller_payment_accounts (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  provider text not null default 'mercadopago',
+  mp_user_id text,
+  access_token text,
+  refresh_token text,
+  token_expires_at timestamp with time zone,
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+
+create index if not exists seller_payment_accounts_provider_idx
+  on public.seller_payment_accounts (provider);

@@ -615,11 +615,18 @@ export default async function Page({ searchParams }: PageProps) {
     .eq("id", user.id)
     .maybeSingle();
 
+  const { data: mpAccount } = await createAdminClient()
+    .from("seller_payment_accounts")
+    .select("mp_user_id, token_expires_at, updated_at")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
   const displayName =
     profile?.display_name?.trim() || user.email?.split("@")[0] || "Usuario";
   const isSeller = profile?.role === "seller";
   const debug = resolvedSearchParams?.debug === "1";
   const payoutMethod = profile?.payout_method ?? "";
+  const mpConnected = Boolean(mpAccount?.mp_user_id);
   const payoutLabel =
     payoutMethod === "pix"
       ? `Pix (${profile?.payout_pix_key || "Chave nao informada"})`
@@ -1114,6 +1121,29 @@ export default async function Page({ searchParams }: PageProps) {
               <span className="rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-500">
                 Metodo: {payoutLabel}
               </span>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                  Mercado Pago
+                </p>
+                <p className="mt-2 text-sm">
+                  {mpConnected
+                    ? "Conectado e pronto para repasses automaticos."
+                    : "Conecte sua conta para receber automaticamente."}
+                </p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  O prazo de liberacao segue as regras do Mercado Pago.
+                </p>
+              </div>
+              <div className="ml-auto">
+                <Link
+                  href="/api/mercadopago/connect"
+                  className="rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700"
+                >
+                  {mpConnected ? "Reconectar" : "Conectar Mercado Pago"}
+                </Link>
+              </div>
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">

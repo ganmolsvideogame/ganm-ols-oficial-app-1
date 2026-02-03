@@ -918,3 +918,21 @@ create policy "Admins can manage unpaid cancellations"
 grant execute on function public.place_proxy_bid(uuid, integer) to authenticated;
 grant execute on function public.close_auction(uuid, uuid) to authenticated;
 grant execute on function public.close_expired_auctions() to authenticated;
+
+alter table public.seller_payment_accounts enable row level security;
+
+drop policy if exists "Admins can view seller payment accounts" on public.seller_payment_accounts;
+drop policy if exists "Admins can update seller payment accounts" on public.seller_payment_accounts;
+drop policy if exists "Admins can insert seller payment accounts" on public.seller_payment_accounts;
+
+create policy "Admins can view seller payment accounts"
+  on public.seller_payment_accounts for select
+  using (is_admin());
+
+create policy "Admins can update seller payment accounts"
+  on public.seller_payment_accounts for update
+  using (is_admin());
+
+create policy "Admins can insert seller payment accounts"
+  on public.seller_payment_accounts for insert
+  with check (is_admin());
