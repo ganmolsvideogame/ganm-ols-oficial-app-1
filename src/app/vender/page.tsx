@@ -1136,7 +1136,17 @@ export default async function Page({ searchParams }: PageProps) {
                   O prazo de liberacao segue as regras do Mercado Pago.
                 </p>
               </div>
-              <div className="ml-auto">
+              <div className="ml-auto flex flex-wrap items-center gap-2">
+                {!mpConnected ? (
+                  <a
+                    href="https://mpago.li/2GnavTh"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700"
+                  >
+                    Criar conta Mercado Pago
+                  </a>
+                ) : null}
                 <Link
                   href="/api/mercadopago/connect"
                   className="rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700"
