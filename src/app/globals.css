@@ -67,33 +67,33 @@ body {
 @layer utilities{
   .ml-container{
     width: 100%;
-    padding-left: 12px;
-    padding-right: 12px;
+    padding-left: 0;
+    padding-right: 0;
   }
 
   @media (min-width: 1024px){
     .ml-container{
-      padding-left: 20px;
-      padding-right: 20px;
+      padding-left: 0;
+      padding-right: 0;
     }
   }
 
   @media (min-width: 1536px){
     .ml-container{
-      padding-left: 28px;
-      padding-right: 28px;
+      padding-left: 0;
+      padding-right: 0;
     }
   }
 
   .ml-container-wide{
     width: 100%;
-    padding-left: 8px;
-    padding-right: 8px;
+    padding-left: 0;
+    padding-right: 0;
   }
   @media (min-width: 1024px){
     .ml-container-wide{
-      padding-left: 16px;
-      padding-right: 16px;
+      padding-left: 0;
+      padding-right: 0;
     }
   }
 
@@ -316,5 +316,6 @@ body {
 @media (prefers-reduced-motion: reduce){
   .ml-rail{ scroll-behavior: auto; }
 }
+
 
 
