@@ -1130,7 +1130,7 @@ export default async function Page({ searchParams }: PageProps) {
                 <p className="mt-2 text-sm">
                   {mpConnected
                     ? "Conectado e pronto para repasses automaticos."
-                    : "Conecte sua conta para receber automaticamente."}
+                    : "Conecte para receber pagamentos automaticamente."}
                 </p>
                 <p className="mt-1 text-xs text-zinc-500">
                   O prazo de liberacao segue as regras do Mercado Pago.
@@ -1151,7 +1151,7 @@ export default async function Page({ searchParams }: PageProps) {
                   href="/api/mercadopago/connect"
                   className="rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700"
                 >
-                  {mpConnected ? "Reconectar" : "Conectar Mercado Pago"}
+                  {mpConnected ? "Reconectar" : "Conectar para receber pagamentos"}
                 </Link>
               </div>
             </div>
