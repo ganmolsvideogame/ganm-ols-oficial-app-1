@@ -1,6 +1,8 @@
 import "server-only";
 import { randomUUID } from "crypto";
 
+import { getMercadoPagoAccessToken } from "@/lib/mercadopago/env";
+
 type RefundResult = {
   ok: boolean;
   status: number;
@@ -9,12 +11,14 @@ type RefundResult = {
 };
 
 export async function refundPayment(paymentId: string): Promise<RefundResult> {
-  const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
-  if (!accessToken) {
+  let accessToken = "";
+  try {
+    accessToken = getMercadoPagoAccessToken();
+  } catch (err) {
     return {
       ok: false,
       status: 500,
-      error: "Missing MERCADOPAGO_ACCESS_TOKEN.",
+      error: err instanceof Error ? err.message : "Missing MERCADOPAGO_ACCESS_TOKEN.",
     };
   }
 

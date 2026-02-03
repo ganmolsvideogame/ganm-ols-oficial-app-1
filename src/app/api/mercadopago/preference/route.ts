@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 
 import { createPreferenceClient } from "@/lib/mercadopago/client";
+import { getBaseUrl } from "@/lib/mercadopago/env";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -64,17 +65,7 @@ function buildRedirect(request: Request, path: string, params?: Record<string, s
   return NextResponse.redirect(url, { status: 303 });
 }
 
-function getBaseUrl(request: Request) {
-  const envBaseUrl = process.env.APP_BASE_URL;
-  if (envBaseUrl) {
-    return envBaseUrl;
-  }
-  const url = new URL(request.url);
-  const proto =
-    request.headers.get("x-forwarded-proto") || url.protocol.replace(":", "");
-  const host = request.headers.get("x-forwarded-host") || url.host;
-  return `${proto}://${host}`;
-}
+// getBaseUrl handled in lib/mercadopago/env
 
 async function handlePreference(
   request: Request,

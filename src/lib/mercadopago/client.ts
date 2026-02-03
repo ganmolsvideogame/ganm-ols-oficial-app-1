@@ -1,12 +1,10 @@
 import "server-only";
 
 import { MercadoPagoConfig, Payment, Preference } from "mercadopago";
+import { getMercadoPagoAccessToken } from "@/lib/mercadopago/env";
 
 function getMercadoPagoClient() {
-  const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
-  if (!accessToken) {
-    throw new Error("Missing MERCADOPAGO_ACCESS_TOKEN.");
-  }
+  const accessToken = getMercadoPagoAccessToken();
 
   return new MercadoPagoConfig({ accessToken });
 }

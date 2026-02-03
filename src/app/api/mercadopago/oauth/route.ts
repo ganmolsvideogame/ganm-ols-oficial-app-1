@@ -1,6 +1,11 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+import {
+  getMercadoPagoClientId,
+  getMercadoPagoClientSecret,
+  getMercadoPagoRedirectUri,
+} from "@/lib/mercadopago/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 function buildRedirect(request: Request, path: string, params?: Record<string, string>) {
@@ -24,18 +29,24 @@ export async function GET(request: Request) {
     });
   }
 
-  const clientId = process.env.MERCADOPAGO_CLIENT_ID;
-  const clientSecret = process.env.MERCADOPAGO_CLIENT_SECRET;
-  const redirectUri = process.env.MERCADOPAGO_REDIRECT_URI;
-
-  if (!clientId || !clientSecret || !redirectUri) {
+  let clientId: string;
+  let clientSecret: string;
+  let redirectUri: string;
+  try {
+    clientId = getMercadoPagoClientId();
+    clientSecret = getMercadoPagoClientSecret();
+    redirectUri = getMercadoPagoRedirectUri();
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Credenciais do Mercado Pago invalidas";
     return buildRedirect(request, "/vender", {
-      error: "Credenciais do Mercado Pago nao configuradas",
+      error: message,
     });
   }
 
   const cookieStore = await cookies();
   const cookieValue = cookieStore.get("mp_oauth_state")?.value ?? "";
+  const codeVerifier = cookieStore.get("mp_oauth_verifier")?.value ?? "";
   const [storedState, userId] = cookieValue.split(":");
 
   if (!storedState || storedState !== state || !userId) {
@@ -53,6 +64,7 @@ export async function GET(request: Request) {
       grant_type: "authorization_code",
       code,
       redirect_uri: redirectUri,
+      ...(codeVerifier ? { code_verifier: codeVerifier } : {}),
     }),
   });
 
@@ -90,6 +102,13 @@ export async function GET(request: Request) {
     );
 
   cookieStore.set("mp_oauth_state", "", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: true,
+    path: "/",
+    maxAge: 0,
+  });
+  cookieStore.set("mp_oauth_verifier", "", {
     httpOnly: true,
     sameSite: "lax",
     secure: true,
