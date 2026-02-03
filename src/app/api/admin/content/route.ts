@@ -145,6 +145,10 @@ export async function POST(request: Request) {
 
       if (existingSection?.id) {
         sectionId = existingSection.id;
+        await supabase
+          .from("home_sections")
+          .update({ is_active: true })
+          .eq("id", sectionId);
       } else {
         const { data: createdSection, error: createSectionError } = await supabase
           .from("home_sections")

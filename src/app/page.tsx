@@ -164,7 +164,6 @@ export default async function Home() {
     .from("home_sections")
     .select("id, title, description, starts_at, ends_at, position")
     .eq("section_type", "banner")
-    .eq("is_active", true)
     .order("position", { ascending: true });
 
   const featuredListings = (featuredData ?? []) as ListingCardData[];
