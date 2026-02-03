@@ -226,34 +226,14 @@ export default async function Home() {
     })
     .find((entry) => entry?.item?.image_url);
 
-  const banners =
-    activeBannerItems.length > 0
-      ? activeBannerItems.map((item, index) => ({
-          id: item.id,
-          imageUrl: item.image_url ?? "/ganmolslogo.png",
-          href: item.href || "/",
-          alt: item.title || `Banner ${index + 1}`,
-        }))
-      : [
-          {
-            id: "1",
-            imageUrl: "/ganmolslogo.png",
-            href: "/ofertas",
-            alt: "Banner 1",
-          },
-          {
-            id: "2",
-            imageUrl: "/ganmolslogo.png",
-            href: "/leiloes",
-            alt: "Banner 2",
-          },
-          {
-            id: "3",
-            imageUrl: "/ganmolslogo.png",
-            href: "/categorias",
-            alt: "Banner 3",
-          },
-        ];
+  const banners = activeBannerItems
+    .filter((item) => Boolean(item.image_url))
+    .map((item, index) => ({
+      id: item.id,
+      imageUrl: item.image_url ?? "",
+      href: item.href || "/",
+      alt: item.title || `Banner ${index + 1}`,
+    }));
 
   return (
     <div className="space-y-16">
@@ -272,9 +252,11 @@ export default async function Home() {
 
       <div className="ganm-ml-scope">
         <div className="ml-stack">
-          <div className="ml-module ml-pad-0">
-            <BannerCarousel banners={banners} />
-          </div>
+          {banners.length > 0 ? (
+            <div className="ml-module ml-pad-0">
+              <BannerCarousel banners={banners} />
+            </div>
+          ) : null}
 
           <div className="ml-container">
             <div className="ml-module ml-pad">
