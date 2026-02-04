@@ -4,13 +4,10 @@ type EnvOptions = {
   required?: boolean;
 };
 
+export function getTrimmedEnv(name: string): string;
 export function getTrimmedEnv(
   name: string,
-  options: EnvOptions & { required: true }
-): string;
-export function getTrimmedEnv(
-  name: string,
-  options?: EnvOptions & { required?: false }
+  options: EnvOptions & { required: false }
 ): string | null;
 export function getTrimmedEnv(name: string, options: EnvOptions = {}) {
   const { required = true } = options;
