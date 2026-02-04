@@ -6,11 +6,11 @@ type EnvOptions = {
 
 export function getTrimmedEnv(
   name: string,
-  options: EnvOptions & { required: true } = { required: true }
+  options: EnvOptions & { required: true }
 ): string;
 export function getTrimmedEnv(
   name: string,
-  options: EnvOptions & { required?: false }
+  options?: EnvOptions & { required?: false }
 ): string | null;
 export function getTrimmedEnv(name: string, options: EnvOptions = {}) {
   const { required = true } = options;
