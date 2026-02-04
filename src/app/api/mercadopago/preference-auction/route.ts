@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { createPreferenceClient } from "@/lib/mercadopago/client";
-import { getBaseUrl } from "@/lib/mercadopago/env";
+import { getBaseUrl, shouldSendPayerEmail } from "@/lib/mercadopago/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -94,6 +94,7 @@ async function handlePreferenceAuction(request: Request, orderId: string) {
   }
 
   const baseUrl = getBaseUrl(request);
+  const sendPayerEmail = shouldSendPayerEmail();
   const preferencePayload = {
     external_reference: order.id,
     items: [
@@ -105,7 +106,7 @@ async function handlePreferenceAuction(request: Request, orderId: string) {
         unit_price: order.amount_cents / 100,
       },
     ],
-    payer: user.email ? { email: user.email } : undefined,
+    payer: sendPayerEmail && user.email ? { email: user.email } : undefined,
     back_urls: {
       success: `${baseUrl}/checkout/retorno?status=approved&order_id=${order.id}`,
       pending: `${baseUrl}/checkout/retorno?status=pending&order_id=${order.id}`,

@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 
 import { createPreferenceClient } from "@/lib/mercadopago/client";
-import { getBaseUrl } from "@/lib/mercadopago/env";
+import { getBaseUrl, shouldSendPayerEmail } from "@/lib/mercadopago/env";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -422,10 +422,11 @@ async function handlePreference(
     });
   }
 
+  const sendPayerEmail = shouldSendPayerEmail();
   const preferencePayload = {
     external_reference: orderId,
     items: preferenceItems,
-    payer: user.email ? { email: user.email } : undefined,
+    payer: sendPayerEmail && user.email ? { email: user.email } : undefined,
     back_urls: {
       success: `${baseUrl}/checkout/retorno?status=approved&order_id=${orderId}`,
       pending: `${baseUrl}/checkout/retorno?status=pending&order_id=${orderId}`,

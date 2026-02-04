@@ -47,6 +47,13 @@ export function getMercadoPagoAccessToken() {
   return getTrimmedEnv("MERCADOPAGO_ACCESS_TOKEN");
 }
 
+export function shouldSendPayerEmail() {
+  const flag = getTrimmedEnv("MERCADOPAGO_SEND_PAYER_EMAIL", {
+    required: false,
+  });
+  return flag === "true";
+}
+
 export function getBaseUrl(request: Request) {
   const envBaseUrl = getTrimmedEnv("APP_BASE_URL", { required: false });
   if (envBaseUrl) {
