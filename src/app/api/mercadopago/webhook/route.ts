@@ -53,14 +53,7 @@ function normalizeZipcode(value: string | null | undefined) {
   return String(value ?? "").replace(/\D/g, "");
 }
 
-export async function POST(request: Request) {
-  let payload: unknown = {};
-  try {
-    payload = await request.json();
-  } catch {
-    payload = {};
-  }
-
+async function handleWebhook(request: Request, payload: unknown) {
   const paymentId = getPaymentId(request.url, payload);
   if (!paymentId) {
     return NextResponse.json({ received: true });
@@ -530,6 +523,17 @@ export async function POST(request: Request) {
   return NextResponse.json({ received: true });
 }
 
-export async function GET() {
-  return NextResponse.json({ ok: true });
+export async function POST(request: Request) {
+  let payload: unknown = {};
+  try {
+    payload = await request.json();
+  } catch {
+    payload = {};
+  }
+
+  return handleWebhook(request, payload);
+}
+
+export async function GET(request: Request) {
+  return handleWebhook(request, {});
 }
