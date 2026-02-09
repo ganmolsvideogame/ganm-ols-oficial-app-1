@@ -17,8 +17,20 @@ function getPaymentId(requestUrl: string, payload: unknown) {
   const body = payload as Record<string, unknown>;
   const data = body?.data as Record<string, unknown> | undefined;
   const idFromBody = data?.id ?? body?.id;
-  const idFromQuery = searchParams.get("id");
-  const candidate = idFromBody ?? idFromQuery ?? "";
+  const idFromQuery =
+    searchParams.get("id") ??
+    searchParams.get("payment_id") ??
+    searchParams.get("data.id") ??
+    searchParams.get("data[id]");
+  const resource = searchParams.get("resource");
+  let idFromResource: string | null = null;
+  if (resource) {
+    const match = resource.match(/payments\/(\d+)/);
+    if (match) {
+      idFromResource = match[1];
+    }
+  }
+  const candidate = idFromBody ?? idFromQuery ?? idFromResource ?? "";
   return String(candidate).trim();
 }
 
@@ -72,11 +84,6 @@ async function handleWebhook(request: Request, payload: unknown) {
     return NextResponse.json({ received: true });
   }
 
-  const externalReference = payment.external_reference;
-  if (!externalReference) {
-    return NextResponse.json({ received: true });
-  }
-
   const admin = createAdminClient();
   await admin.from("webhook_events").insert({
     provider: "mercadopago",
@@ -84,6 +91,28 @@ async function handleWebhook(request: Request, payload: unknown) {
     payload,
     status: "received",
   });
+  let externalReference = payment.external_reference;
+  if (!externalReference && payment.preference_id) {
+    const { data: orderByPreference } = await admin
+      .from("orders")
+      .select("id")
+      .eq("mp_preference_id", payment.preference_id)
+      .maybeSingle();
+    externalReference = orderByPreference?.id ?? null;
+  }
+
+  if (!externalReference && payment.preference_id) {
+    const { data: checkoutByPreference } = await admin
+      .from("cart_checkouts")
+      .select("id")
+      .eq("mp_preference_id", payment.preference_id)
+      .maybeSingle();
+    externalReference = checkoutByPreference?.id ?? null;
+  }
+
+  if (!externalReference) {
+    return NextResponse.json({ received: true });
+  }
   const updatePayload: Record<string, unknown> = {
     status: payment.status ?? "pending",
     mp_payment_id: String(payment.id ?? paymentId),
