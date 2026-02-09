@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { createPaymentClient } from "@/lib/mercadopago/client";
+import { getMercadoPagoAccessToken } from "@/lib/mercadopago/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SELLER_POST_DAYS } from "@/lib/config/commerce";
 import {
@@ -34,6 +35,60 @@ function getPaymentId(requestUrl: string, payload: unknown) {
   return String(candidate).trim();
 }
 
+function getMerchantOrderId(requestUrl: string, payload: unknown) {
+  const searchParams = new URL(requestUrl).searchParams;
+  const body = payload as Record<string, unknown>;
+  const data = body?.data as Record<string, unknown> | undefined;
+  const idFromBody = data?.id ?? body?.id;
+  const idFromQuery =
+    searchParams.get("id") ??
+    searchParams.get("merchant_order_id") ??
+    searchParams.get("data.id") ??
+    searchParams.get("data[id]");
+  const resource = searchParams.get("resource");
+  let idFromResource: string | null = null;
+  if (resource) {
+    const match = resource.match(/merchant_orders\/(\d+)/);
+    if (match) {
+      idFromResource = match[1];
+    }
+  }
+  const candidate = idFromBody ?? idFromQuery ?? idFromResource ?? "";
+  return String(candidate).trim();
+}
+
+function getTopic(requestUrl: string, payload: unknown) {
+  const searchParams = new URL(requestUrl).searchParams;
+  const body = payload as Record<string, unknown>;
+  const action = typeof body?.action === "string" ? body.action : "";
+  const actionPrefix = action ? action.split(".")[0] : "";
+  const raw =
+    searchParams.get("topic") ??
+    searchParams.get("type") ??
+    (typeof body?.type === "string" ? body.type : null) ??
+    (typeof body?.topic === "string" ? body.topic : null) ??
+    actionPrefix ??
+    "payment";
+  return String(raw).trim().toLowerCase();
+}
+
+async function fetchMerchantOrder(merchantOrderId: string) {
+  const accessToken = getMercadoPagoAccessToken();
+  const response = await fetch(
+    `https://api.mercadopago.com/merchant_orders/${merchantOrderId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    }
+  );
+  if (!response.ok) {
+    return null;
+  }
+  return response.json();
+}
+
 const DOC_REQUIRED_SERVICES = new Set(["3", "31"]);
 
 function normalizeState(value: string) {
@@ -65,12 +120,7 @@ function normalizeZipcode(value: string | null | undefined) {
   return String(value ?? "").replace(/\D/g, "");
 }
 
-async function handleWebhook(request: Request, payload: unknown) {
-  const paymentId = getPaymentId(request.url, payload);
-  if (!paymentId) {
-    return NextResponse.json({ received: true });
-  }
-
+async function processPayment(paymentId: string, payload: unknown, admin: ReturnType<typeof createAdminClient>) {
   const paymentClient = createPaymentClient();
   let payment: {
     status?: string;
@@ -81,16 +131,9 @@ async function handleWebhook(request: Request, payload: unknown) {
   try {
     payment = await paymentClient.get({ id: paymentId });
   } catch {
-    return NextResponse.json({ received: true });
+    return;
   }
 
-  const admin = createAdminClient();
-  await admin.from("webhook_events").insert({
-    provider: "mercadopago",
-    event_type: "payment",
-    payload,
-    status: "received",
-  });
   let externalReference = payment.external_reference;
   if (!externalReference && payment.preference_id) {
     const { data: orderByPreference } = await admin
@@ -111,7 +154,7 @@ async function handleWebhook(request: Request, payload: unknown) {
   }
 
   if (!externalReference) {
-    return NextResponse.json({ received: true });
+    return;
   }
   const updatePayload: Record<string, unknown> = {
     status: payment.status ?? "pending",
@@ -549,6 +592,41 @@ async function handleWebhook(request: Request, payload: unknown) {
     });
   }
 
+}
+
+async function handleWebhook(request: Request, payload: unknown) {
+  const admin = createAdminClient();
+  const topic = getTopic(request.url, payload);
+  await admin.from("webhook_events").insert({
+    provider: "mercadopago",
+    event_type: topic,
+    payload,
+    status: "received",
+  });
+
+  if (topic === "merchant_order") {
+    const merchantOrderId = getMerchantOrderId(request.url, payload);
+    if (!merchantOrderId) {
+      return NextResponse.json({ received: true });
+    }
+    const merchantOrder = await fetchMerchantOrder(merchantOrderId);
+    const payments = Array.isArray(merchantOrder?.payments)
+      ? merchantOrder.payments
+      : [];
+    for (const payment of payments) {
+      const id = payment?.id ? String(payment.id) : "";
+      if (id) {
+        await processPayment(id, payload, admin);
+      }
+    }
+    return NextResponse.json({ received: true });
+  }
+
+  const paymentId = getPaymentId(request.url, payload);
+  if (!paymentId) {
+    return NextResponse.json({ received: true });
+  }
+  await processPayment(paymentId, payload, admin);
   return NextResponse.json({ received: true });
 }
 
