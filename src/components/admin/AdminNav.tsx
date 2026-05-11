@@ -8,6 +8,7 @@ import { ADMIN_PATHS } from "@/lib/config/admin";
 const navItems = [
   { href: ADMIN_PATHS.dashboard, label: "Visao geral" },
   { href: ADMIN_PATHS.live, label: "Ao vivo" },
+  { href: ADMIN_PATHS.ai, label: "IA catalogo" },
   { href: ADMIN_PATHS.users, label: "Usuarios" },
   { href: ADMIN_PATHS.listings, label: "Anuncios" },
   { href: ADMIN_PATHS.inventory, label: "Estoque" },

@@ -1,0 +1,9 @@
+[project]
+name = "ganm-ols-ai"
+version = "0.1.0"
+description = "Ferramentas Python de inteligencia interna para catalogo GANM OLS."
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+ganm-ai = "ganm_ols_ai.cli:main"

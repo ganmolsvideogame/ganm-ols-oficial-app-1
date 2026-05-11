@@ -3,6 +3,7 @@ export const ADMIN_PATHS = {
   login: "/painel-ganm-ols/acesso",
   dashboard: "/painel-ganm-ols/controle",
   live: "/painel-ganm-ols/ao-vivo",
+  ai: "/painel-ganm-ols/ia",
   users: "/painel-ganm-ols/usuarios",
   listings: "/painel-ganm-ols/anuncios",
   inventory: "/painel-ganm-ols/estoque",
