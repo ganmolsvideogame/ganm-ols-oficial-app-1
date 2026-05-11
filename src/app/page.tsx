@@ -4,6 +4,9 @@ import { FAMILIES } from "@/lib/mock/data";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import PromoModal from "@/components/home/PromoModal";
+import MobileHomeExperience, {
+  type MobileHomeListing,
+} from "@/components/home/MobileHomeExperience";
 import QuickAccess from "@/components/home/QuickAccess";
 import LanceCard from "@/components/ui/LanceCard";
 import ProductCard from "@/components/ui/ProductCard";
@@ -407,9 +410,41 @@ export default async function Home() {
       alt: item.title || `Banner ${index + 1}`,
     }));
   const hasHeroBanner = banners.length > 0;
+  const mobileListings: MobileHomeListing[] = [
+    ...featuredListings.map((item) => ({
+      id: item.id,
+      title: item.title,
+      priceCents: item.price_cents,
+      family: item.family,
+      platform: item.platform,
+      imageUrl: item.thumbnail_url,
+      href: buildListingPath(item.id, item.title),
+      badge: "Destaque",
+    })),
+    ...recentListings.map((item) => ({
+      id: item.id,
+      title: item.title,
+      priceCents: item.price_cents,
+      family: item.family,
+      platform: item.platform,
+      imageUrl: item.thumbnail_url,
+      href: buildListingPath(item.id, item.title),
+      badge: "Novo",
+    })),
+    ...auctions.map((item) => ({
+      id: item.id,
+      title: item.title,
+      priceCents: item.price_cents,
+      family: item.family,
+      platform: item.platform,
+      imageUrl: item.thumbnail_url,
+      href: buildListingPath(item.id, item.title),
+      badge: "Lance",
+    })),
+  ];
 
   return (
-    <div className="space-y-16 -mx-3 lg:-mx-4 2xl:-mx-5">
+    <div className="-mx-3 lg:-mx-4 2xl:-mx-5">
       {modalEntry ? (
         <PromoModal
           id={modalEntry.item.id}
@@ -423,7 +458,15 @@ export default async function Home() {
         />
       ) : null}
 
-      <div className="ganm-ml-scope">
+      <div className="md:hidden">
+        <MobileHomeExperience
+          banners={banners}
+          affiliateProducts={affiliateProducts}
+          listings={mobileListings}
+        />
+      </div>
+
+      <div className="ganm-ml-scope hidden md:block">
         <div className="ml-stack">
           {hasHeroBanner ? (
             <div className="ml-module ml-pad-0">

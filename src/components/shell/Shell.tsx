@@ -44,7 +44,7 @@ export default async function Shell({ children }: ShellProps) {
       </div>
       <main
         data-shell-main
-        className="w-full px-3 pb-24 pt-6 lg:px-4 2xl:px-5 md:pb-12 md:pt-8"
+        className="w-full px-3 pb-24 pt-0 lg:px-4 2xl:px-5 md:pb-12 md:pt-8"
       >
         {children}
       </main>
