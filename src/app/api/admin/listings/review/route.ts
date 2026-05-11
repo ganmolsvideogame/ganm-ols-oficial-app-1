@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { ADMIN_PATHS } from "@/lib/config/admin";
 import { createClient } from "@/lib/supabase/server";
+import { insertNotificationsWithPush } from "@/lib/push/delivery";
 
 function buildRedirect(
   request: Request,
@@ -105,7 +106,7 @@ export async function POST(request: Request) {
           : moderationStatus === "rejected"
             ? "reprovado"
             : "em ajuste";
-      await supabase.from("notifications").insert({
+      await insertNotificationsWithPush(supabase, {
         user_id: listing.seller_user_id,
         title: "Moderacao do anuncio",
         body: `Seu anuncio ${listing.title ?? ""} foi ${statusLabel}.`,

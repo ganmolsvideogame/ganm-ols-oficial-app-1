@@ -1,29 +1,34 @@
 import { NextResponse } from "next/server";
 
+import { sendBrevoShippingUpdateEmails } from "@/lib/brevo/order-emails";
+import {
+  isCronAuthorized,
+  missingCronSecretResponse,
+  unauthorizedCronResponse,
+} from "@/lib/cron/auth";
 import { refundPayment } from "@/lib/mercadopago/refund";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { cancelLabel, getOrderInfo, getPrintLink } from "@/lib/superfrete/api";
+import { cancelLabel } from "@/lib/superfrete/api";
+import { refreshOrderSuperfrete } from "@/lib/superfrete/refresh";
+import { insertNotificationsWithPush } from "@/lib/push/delivery";
 
-const REFRESH_SECRET = process.env.SUPERFRETE_REFRESH_SECRET;
-
-export async function POST(request: Request) {
-  if (!REFRESH_SECRET) {
-    return NextResponse.json(
-      { error: "Missing SUPERFRETE_REFRESH_SECRET" },
-      { status: 500 }
-    );
+async function handleCron(request: Request) {
+  if (
+    !String(process.env.CRON_SECRET ?? "").trim() &&
+    !String(process.env.SUPERFRETE_REFRESH_SECRET ?? "").trim()
+  ) {
+    return missingCronSecretResponse();
   }
 
-  const token = request.headers.get("x-refresh-token") ?? "";
-  if (token !== REFRESH_SECRET) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isCronAuthorized(request)) {
+    return unauthorizedCronResponse();
   }
 
   const admin = createAdminClient();
   const { data: orders } = await admin
     .from("orders")
     .select(
-      "id, status, shipping_status, shipping_post_deadline_at, superfrete_id, superfrete_tag_id, superfrete_status, superfrete_print_url, mp_payment_id, buyer_user_id, seller_user_id, listing_id"
+      "id, status, listing_id, buyer_user_id, seller_user_id, quantity, shipping_service_id, shipping_status, shipping_tracking, shipping_post_deadline_at, superfrete_id, superfrete_tag_id, superfrete_status, superfrete_tracking, superfrete_print_url, mp_payment_id"
     )
     .eq("status", "approved")
     .not("superfrete_id", "is", null)
@@ -40,30 +45,24 @@ export async function POST(request: Request) {
   const now = new Date();
 
   for (const order of orders) {
-    if (!order.superfrete_id) {
-      continue;
-    }
     try {
-      const info = await getOrderInfo(order.superfrete_id);
-      const printOverride =
-        info.status === "released"
-          ? await getPrintLink(order.superfrete_id)
-          : null;
-      const printUrl = printOverride?.url || info.printUrl;
-      await admin
-        .from("orders")
-        .update({
-          superfrete_status: info.status ?? "pending",
-          superfrete_tracking: info.tracking,
-          superfrete_print_url: printUrl,
-          superfrete_raw_info: info.raw,
-        })
-        .eq("id", order.id);
-      updated += 1;
+      const result = await refreshOrderSuperfrete(admin, order);
+      if (result.updated) {
+        updated += 1;
+        const { data: refreshedOrder } = await admin
+          .from("orders")
+          .select(
+            "id, buyer_user_id, seller_user_id, listing_id, shipping_status, shipping_tracking, superfrete_id, superfrete_status, superfrete_tracking, superfrete_print_url"
+          )
+          .eq("id", order.id)
+          .maybeSingle();
+        if (refreshedOrder) {
+          await sendBrevoShippingUpdateEmails(admin, [refreshedOrder]);
+        }
+      }
     } catch {
       // Ignore individual errors to keep the batch running.
     }
-
   }
 
   const { data: expiredPostOrders } = await admin
@@ -139,10 +138,18 @@ export async function POST(request: Request) {
         });
       }
       if (notifications.length > 0) {
-        await admin.from("notifications").insert(notifications);
+        await insertNotificationsWithPush(admin, notifications);
       }
     }
   }
 
   return NextResponse.json({ updated, autoCancelled: expiredPostOrders?.length ?? 0 });
+}
+
+export async function POST(request: Request) {
+  return handleCron(request);
+}
+
+export async function GET(request: Request) {
+  return handleCron(request);
 }

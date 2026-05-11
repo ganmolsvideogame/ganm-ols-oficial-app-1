@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { ADMIN_PATHS } from "@/lib/config/admin";
+import { buildListingPath } from "@/lib/listings/url";
 import { FAMILIES } from "@/lib/mock/data";
 import { closeExpiredAuctions } from "@/lib/auctions";
 import { createClient } from "@/lib/supabase/server";
@@ -189,14 +190,14 @@ export default async function Page({ params }: PageProps) {
   const seller = sellerProfile as SellerRow | null;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 overflow-x-hidden">
       <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
               Detalhes do anuncio
             </p>
-            <h1 className="mt-2 text-2xl font-semibold text-zinc-900">
+            <h1 className="mt-2 break-words text-2xl font-semibold text-zinc-900">
               {listing.title}
             </h1>
           </div>
@@ -206,13 +207,13 @@ export default async function Page({ params }: PageProps) {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <div className="min-w-0 rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
           {imageUrls.length > 0 ? (
             <img
               src={imageUrls[0].url}
               alt={listing.title}
-              className="h-80 w-full rounded-3xl object-cover"
+              className="h-80 w-full rounded-3xl bg-zinc-50 object-contain"
             />
           ) : (
             <div className="flex h-80 items-center justify-center rounded-3xl border border-dashed border-zinc-200 bg-zinc-50 text-sm text-zinc-400">
@@ -226,15 +227,15 @@ export default async function Page({ params }: PageProps) {
                   key={image.id}
                   src={image.url}
                   alt={listing.title}
-                  className="h-24 w-full rounded-2xl object-cover"
+                  className="h-24 w-full rounded-2xl bg-zinc-50 object-contain"
                 />
               ))}
             </div>
           ) : null}
         </div>
 
-        <div className="space-y-4 rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <div className="space-y-2">
+        <div className="min-w-0 space-y-4 rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="min-w-0 space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
               {familyLabelBySlug[listing.family ?? ""] ??
                 listing.family ??
@@ -259,17 +260,19 @@ export default async function Page({ params }: PageProps) {
           </div>
           <div className="space-y-2 text-sm text-zinc-600">
             <p>Descricao:</p>
-            <p>{listing.description || "Sem descricao."}</p>
+            <p className="break-words">
+              {listing.description || "Sem descricao."}
+            </p>
           </div>
           {seller ? (
             <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
                 Vendedor
               </p>
-              <p className="mt-2 text-base font-semibold text-zinc-900">
+              <p className="mt-2 break-words text-base font-semibold text-zinc-900">
                 {seller.display_name || seller.email || "Vendedor"}
               </p>
-              <p className="text-xs text-zinc-500">{seller.email || ""}</p>
+              <p className="break-words text-xs text-zinc-500">{seller.email || ""}</p>
             </div>
           ) : null}
           <div className="flex flex-wrap gap-3">
@@ -280,7 +283,7 @@ export default async function Page({ params }: PageProps) {
               Voltar ao painel
             </Link>
             <Link
-              href={`/produto/${listing.id}`}
+              href={buildListingPath(listing.id, listing.title)}
               className="rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold text-white"
             >
               Ver pagina publica

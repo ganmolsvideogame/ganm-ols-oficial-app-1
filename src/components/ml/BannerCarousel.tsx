@@ -38,7 +38,16 @@ export function BannerCarousel({
           className={`ml-banner-slide ${idx === i ? "is-active" : ""}`}
           aria-label={b.alt}
         >
-          <img src={b.imageUrl} alt={b.alt} className="ml-banner-img" />
+          <img
+            src={b.imageUrl}
+            alt={b.alt}
+            className="ml-banner-img"
+            width={2172}
+            height={724}
+            loading={idx === 0 ? "eager" : "lazy"}
+            decoding="async"
+            fetchPriority={idx === 0 ? "high" : "auto"}
+          />
         </a>
       ))}
 

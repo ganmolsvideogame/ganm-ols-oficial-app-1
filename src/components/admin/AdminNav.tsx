@@ -18,6 +18,8 @@ const navItems = [
   { href: ADMIN_PATHS.coupons, label: "Cupons" },
   { href: ADMIN_PATHS.auctions, label: "Lances" },
   { href: ADMIN_PATHS.content, label: "Conteudo" },
+  { href: ADMIN_PATHS.push, label: "Push" },
+  { href: ADMIN_PATHS.support, label: "Suporte" },
   { href: ADMIN_PATHS.reports, label: "Relatorios" },
   { href: ADMIN_PATHS.settings, label: "Configuracoes" },
 ];

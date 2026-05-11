@@ -1,0 +1,21 @@
+<svg width="1200" height="900" viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="900" rx="48" fill="#F4F4F5"/>
+  <rect x="70" y="70" width="1060" height="760" rx="40" fill="white"/>
+  <rect x="120" y="120" width="960" height="88" rx="44" fill="#18181B"/>
+  <text x="170" y="173" fill="white" font-family="Arial, sans-serif" font-size="34" font-weight="700">GANM OLS | Parceiro</text>
+  <rect x="170" y="274" width="860" height="352" rx="176" fill="#111827"/>
+  <rect x="240" y="344" width="720" height="212" rx="106" fill="#1F2937"/>
+  <circle cx="338" cy="450" r="72" fill="#0F172A"/>
+  <circle cx="338" cy="450" r="22" fill="#E4E4E7"/>
+  <circle cx="862" cy="450" r="72" fill="#0F172A"/>
+  <circle cx="862" cy="450" r="22" fill="#E4E4E7"/>
+  <circle cx="930" cy="414" r="18" fill="#E4E4E7"/>
+  <circle cx="972" cy="450" r="18" fill="#E4E4E7"/>
+  <circle cx="930" cy="486" r="18" fill="#E4E4E7"/>
+  <circle cx="888" cy="450" r="18" fill="#E4E4E7"/>
+  <rect x="566" y="418" width="68" height="18" rx="9" fill="#E4E4E7"/>
+  <rect x="582" y="448" width="36" height="18" rx="9" fill="#E4E4E7"/>
+  <text x="170" y="700" fill="#18181B" font-family="Arial, sans-serif" font-size="54" font-weight="700">Nintendo Switch Pro Controller</text>
+  <text x="170" y="754" fill="#52525B" font-family="Arial, sans-serif" font-size="28">Compra externa via Amazon Brasil</text>
+  <text x="170" y="798" fill="#52525B" font-family="Arial, sans-serif" font-size="24">Selecao inicial de parceiros da GANM OLS</text>
+</svg>

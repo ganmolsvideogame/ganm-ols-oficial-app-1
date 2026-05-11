@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAdminUserIds } from "@/lib/supabase/admins";
+import { insertNotificationsWithPush } from "@/lib/push/delivery";
 
 export async function POST(request: Request) {
   const admin = createAdminClient();
@@ -15,23 +17,22 @@ export async function POST(request: Request) {
     path = "/";
   }
 
+  // Only notify for the seller landing page to keep admin alerts focused.
+  if (path !== "/vender/comece") {
+    return NextResponse.json({ ok: true });
+  }
+
   try {
-    const { data: admins } = await admin
-      .from("admins")
-      .select("user_id")
-      .not("user_id", "is", null);
-    const adminIds = (admins ?? [])
-      .map((row) => row.user_id)
-      .filter((id): id is string => Boolean(id));
+    const adminIds = await getAdminUserIds(admin);
 
     if (adminIds.length > 0) {
-      await admin.from("notifications").insert(
+      await insertNotificationsWithPush(admin, 
         adminIds.map((adminId) => ({
           user_id: adminId,
-          title: "Nova visita no site",
-          body: `Visita registrada em ${path}.`,
+          title: "Visita na landing de vendedores",
+          body: "Alguem acessou a landing de vendedores.",
           link: path,
-          type: "visits",
+          type: "seller_landing_visit",
         }))
       );
     }
@@ -41,4 +42,3 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ ok: true });
 }
-

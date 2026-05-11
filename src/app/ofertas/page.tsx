@@ -1,4 +1,5 @@
 import { FAMILIES } from "@/lib/mock/data";
+import { buildListingPath } from "@/lib/listings/url";
 import { createClient } from "@/lib/supabase/server";
 import ListingCard from "@/components/listings/ListingCard";
 
@@ -53,7 +54,7 @@ export default async function Page() {
           listings.map((item) => (
             <ListingCard
               key={item.id}
-              href={`/produto/${item.id}`}
+              href={buildListingPath(item.id, item.title)}
               title={item.title}
               priceCents={item.price_cents}
               thumbnailUrl={item.thumbnail_url}

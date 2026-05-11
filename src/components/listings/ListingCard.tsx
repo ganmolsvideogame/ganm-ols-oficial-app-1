@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { normalizeListingHref } from "@/lib/listings/url";
 import { formatCentsToBRL } from "@/lib/utils/price";
 
 type ListingCardProps = {
@@ -43,10 +44,11 @@ export default function ListingCard({
 }: ListingCardProps) {
   const shippingLabel = formatShipping(shippingAvailable, freeShipping);
   const shippingClass = freeShipping ? "text-emerald-600" : "text-zinc-500";
+  const resolvedHref = normalizeListingHref(href, title);
 
   return (
     <Link
-      href={href}
+      href={resolvedHref}
       className="group flex h-full flex-col rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl bg-zinc-50">
@@ -59,7 +61,7 @@ export default function ListingCard({
           <img
             src={thumbnailUrl}
             alt={title}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-contain"
             loading="lazy"
           />
         ) : (

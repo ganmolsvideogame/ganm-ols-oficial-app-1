@@ -1,0 +1,28 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="900" fill="#F4F4F5"/>
+  <rect x="72" y="72" width="1456" height="756" rx="48" fill="url(#bg)"/>
+  <circle cx="1320" cy="196" r="140" fill="#22C55E" fill-opacity="0.18"/>
+  <circle cx="1180" cy="690" r="188" fill="#2563EB" fill-opacity="0.16"/>
+  <circle cx="340" cy="214" r="164" fill="#0F172A" fill-opacity="0.12"/>
+  <rect x="156" y="160" width="178" height="42" rx="21" fill="#18181B"/>
+  <text x="245" y="187" fill="white" font-size="20" font-family="Arial, sans-serif" text-anchor="middle" font-weight="700">GANM OLS</text>
+  <text x="156" y="314" fill="#18181B" font-size="84" font-family="Arial, sans-serif" font-weight="700">Super Mario Bros.</text>
+  <text x="156" y="402" fill="#18181B" font-size="84" font-family="Arial, sans-serif" font-weight="700">Wonder</text>
+  <text x="156" y="476" fill="#3F3F46" font-size="34" font-family="Arial, sans-serif" font-weight="500">O retorno triunfal do Mario em 2D</text>
+  <text x="156" y="584" fill="#18181B" font-size="28" font-family="Arial, sans-serif" font-weight="700">Nintendo Switch 2 Edition + Meetup in Bellabel Park</text>
+  <text x="156" y="630" fill="#52525B" font-size="24" font-family="Arial, sans-serif">Flower Kingdom, Wonder Flowers, badges e multiplayer expandido.</text>
+  <g>
+    <rect x="1060" y="250" width="300" height="300" rx="40" fill="white" fill-opacity="0.78"/>
+    <circle cx="1210" cy="368" r="88" fill="#FACC15"/>
+    <circle cx="1172" cy="348" r="16" fill="#18181B"/>
+    <circle cx="1248" cy="348" r="16" fill="#18181B"/>
+    <path d="M1164 418C1182 444 1238 444 1256 418" stroke="#18181B" stroke-width="14" stroke-linecap="round"/>
+    <rect x="1168" y="476" width="84" height="26" rx="13" fill="#2563EB"/>
+  </g>
+  <defs>
+    <linearGradient id="bg" x1="156" y1="160" x2="1480" y2="828" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E4E4E7"/>
+    </linearGradient>
+  </defs>
+</svg>

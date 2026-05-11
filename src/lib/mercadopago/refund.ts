@@ -1,7 +1,7 @@
 import "server-only";
-import { randomUUID } from "crypto";
 
 import { getMercadoPagoAccessToken } from "@/lib/mercadopago/env";
+import { buildIdempotencyKey } from "@/lib/mercadopago/idempotency";
 
 type RefundResult = {
   ok: boolean;
@@ -10,7 +10,10 @@ type RefundResult = {
   error?: string;
 };
 
-export async function refundPayment(paymentId: string): Promise<RefundResult> {
+export async function refundPayment(
+  paymentId: string,
+  options?: { idempotencyKey?: string }
+): Promise<RefundResult> {
   let accessToken = "";
   try {
     accessToken = getMercadoPagoAccessToken();
@@ -29,7 +32,9 @@ export async function refundPayment(paymentId: string): Promise<RefundResult> {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
-        "X-Idempotency-Key": randomUUID(),
+        "X-Idempotency-Key":
+          options?.idempotencyKey ??
+          buildIdempotencyKey(`mp:refund:${String(paymentId)}`),
       },
     }
   );

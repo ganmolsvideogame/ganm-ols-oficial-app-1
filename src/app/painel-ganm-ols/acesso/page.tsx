@@ -26,6 +26,7 @@ export default async function Page({ searchParams }: PageProps) {
       <div className="max-w-md rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
         <ClientSignInForm
           redirectTo={ADMIN_PATHS.dashboard}
+          errorRedirect={ADMIN_PATHS.login}
           initialError={resolvedSearchParams?.error ?? null}
           initialMessage={resolvedSearchParams?.message ?? null}
         />

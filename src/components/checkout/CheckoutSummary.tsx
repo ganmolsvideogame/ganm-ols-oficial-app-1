@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { formatCentsToBRL } from "@/lib/utils/price";
+import {
+  queuePendingGaEvent,
+  trackGaEvent,
+} from "@/lib/analytics/googleAnalytics";
 
 type ShippingOption = {
   shipping_cost_cents: number;
@@ -118,7 +122,7 @@ export default function CheckoutSummary({
     return () => controller.abort();
   }, [zipcode]);
 
-  async function handleQuote() {
+  const handleQuote = useCallback(async () => {
     setQuoteError("");
     setOptions([]);
     const normalized = normalizeZipcode(zipcode);
@@ -174,14 +178,14 @@ export default function CheckoutSummary({
     } finally {
       setLoadingQuote(false);
     }
-  }
+  }, [freeShipping, listingId, zipcode]);
 
   useEffect(() => {
     const normalized = normalizeZipcode(zipcode);
     if (normalized.length === 8 && options.length === 0 && !loadingQuote) {
       void handleQuote();
     }
-  }, [zipcode, options.length, loadingQuote]);
+  }, [zipcode, options.length, loadingQuote, handleQuote]);
 
   const selectedOption =
     options.find((option) => option.service_id === selectedServiceId) ??
@@ -232,6 +236,35 @@ export default function CheckoutSummary({
   }
 
   const couponInput = useMemo(() => couponCode.trim(), [couponCode]);
+
+  const handleBeginCheckout = useCallback(() => {
+    const payload = {
+      currency: "BRL",
+      value: Number((totalCents / 100).toFixed(2)),
+      item_count: 1,
+      items: [
+        {
+          item_id: listingId,
+          price: Number((listingPriceCents / 100).toFixed(2)),
+          quantity: 1,
+        },
+      ],
+      shipping_tier: freeShipping
+        ? "frete_gratis"
+        : selectedOption?.service_name ?? "nao_informado",
+    };
+
+    const sent = trackGaEvent("begin_checkout", payload);
+    if (!sent) {
+      queuePendingGaEvent("begin_checkout", payload);
+    }
+  }, [
+    freeShipping,
+    listingId,
+    listingPriceCents,
+    selectedOption?.service_name,
+    totalCents,
+  ]);
 
   return (
     <div className="space-y-6 rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
@@ -384,7 +417,11 @@ export default function CheckoutSummary({
         </div>
       </div>
 
-      <form action="/api/mercadopago/preference" method="post">
+      <form
+        action="/api/mercadopago/preference"
+        method="post"
+        onSubmit={handleBeginCheckout}
+      >
         <input type="hidden" name="listing_id" value={listingId} />
         {selectedOption?.service_id ? (
           <input

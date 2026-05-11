@@ -3,6 +3,17 @@ import { NextResponse } from "next/server";
 import { ensureProfile } from "@/lib/supabase/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { applyPendingCookies, createRouteClient } from "@/lib/supabase/route";
+import { insertNotificationsWithPush } from "@/lib/push/delivery";
+
+function mapAuthError(message: string) {
+  if (message.includes("Invalid login credentials")) {
+    return "Email ou senha invalidos.";
+  }
+  if (message.includes("Email not confirmed")) {
+    return "Confirme seu email para entrar.";
+  }
+  return message;
+}
 
 function buildRedirect(request: Request, path: string, params?: Record<string, string>) {
   const url = new URL(path, request.url);
@@ -48,7 +59,7 @@ export async function POST(request: Request) {
 
   if (error) {
     const response = buildRedirect(request, errorRedirect, {
-      error: error.message,
+      error: mapAuthError(error.message),
       ...(redirectTo ? { redirect_to: redirectTo } : {}),
     });
     applyPendingCookies(response, pendingCookies);
@@ -96,7 +107,7 @@ export async function POST(request: Request) {
         .filter((id): id is string => Boolean(id));
       if (adminIds.length > 0) {
         const label = displayName || email;
-        await admin.from("notifications").insert(
+        await insertNotificationsWithPush(admin, 
           adminIds.map((adminId) => ({
             user_id: adminId,
             title: "Login realizado",

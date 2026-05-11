@@ -224,7 +224,7 @@ export default async function Page({ searchParams }: PageProps) {
             <ImageUploadField
               name="image"
               label="Imagem do banner"
-              helperText="Envie o arquivo do banner que sera exibido na vitrine."
+              helperText="Envie o arquivo do banner que sera exibido na vitrine. Tamanho ideal: 2172 x 724 px."
               multiple={false}
             />
           </div>
@@ -345,7 +345,7 @@ export default async function Page({ searchParams }: PageProps) {
             <ImageUploadField
               name="image"
               label="Imagem do banner"
-              helperText="Envie o banner que sera exibido na pagina da categoria."
+              helperText="Envie o banner que sera exibido na pagina da categoria. Tamanho ideal: 2172 x 724 px."
               multiple={false}
             />
           </div>

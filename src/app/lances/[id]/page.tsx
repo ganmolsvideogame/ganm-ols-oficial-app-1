@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { buildListingPath } from "@/lib/listings/url";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatCentsToBRL } from "@/lib/utils/price";
@@ -136,7 +137,7 @@ export default async function AuctionDetailsPage({ params }: PageProps) {
           </div>
           {listing.status === "active" ? (
             <Link
-              href={`/produto/${listing.id}`}
+              href={buildListingPath(listing.id, listing.title)}
               className="mt-4 inline-flex rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold text-white"
             >
               Ver anuncio

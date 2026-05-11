@@ -1,6 +1,10 @@
 import Link from "next/link";
 
-import { FAMILIES, SUBCATEGORIES } from "@/lib/mock/data";
+import {
+  buildFamilySubcategoryPath,
+  FAMILIES,
+  SUBCATEGORIES,
+} from "@/lib/mock/data";
 
 export default function Page() {
   return (
@@ -38,9 +42,7 @@ export default function Page() {
               {(SUBCATEGORIES[family.slug] || []).map((subcategory) => (
                 <Link
                   key={`${family.slug}-${subcategory}`}
-                  href={`/buscar?familia=${family.slug}&sub=${encodeURIComponent(
-                    subcategory.toLowerCase()
-                  )}`}
+                  href={buildFamilySubcategoryPath(family.slug, subcategory)}
                   className="rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-600"
                 >
                   {subcategory}

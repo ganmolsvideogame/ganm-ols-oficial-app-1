@@ -563,6 +563,39 @@ export default async function Page({ searchParams }: PageProps) {
         ))}
       </section>
 
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-zinc-900">
+              Exportar contatos
+            </h2>
+            <p className="text-sm text-zinc-500">
+              Baixe emails e telefones em CSV para abrir no Excel ou Sheets.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="/api/admin/exports/contacts?scope=all"
+              className="rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold text-white"
+            >
+              Baixar todos
+            </a>
+            <a
+              href="/api/admin/exports/contacts?scope=sellers"
+              className="rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700"
+            >
+              Baixar vendedores
+            </a>
+            <a
+              href="/api/admin/exports/contacts?scope=buyers"
+              className="rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700"
+            >
+              Baixar compradores
+            </a>
+          </div>
+        </div>
+      </section>
+
       <section className="grid gap-4 md:grid-cols-3">
         {[
           { label: "Anuncios novos 24h", value: newListings24h },

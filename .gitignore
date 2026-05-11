@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+android/app/google-services.json
+android/keystore.properties
 
 # vercel
 .vercel
@@ -40,8 +42,24 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+.vercel
+
 # python
 __pycache__/
 *.py[cod]
 /python/.venv/
 /python/.out/
+
+# local scratch/generated artifacts
+.tmp_*
+tmp_ml_*.html
+*.aab
+*.apk
+bundle-icon-preview-*.png
+launcher-white-preview-*.png
+android-launcher-candidate-preview.png
+play-data-safety-sample.csv
+ganmols-google-play-data-safety.csv
+test-draw.jpg
+/db/_backup/
+/db/deploy_test.sql

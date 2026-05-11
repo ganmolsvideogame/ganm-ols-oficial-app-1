@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { buildMetaCatalogListingId } from "@/lib/analytics/metaCatalog";
 import { createClient } from "@/lib/supabase/client";
+import { buildListingPath } from "@/lib/listings/url";
 import { formatCentsToBRL } from "@/lib/utils/price";
 import { notifyCartCount } from "@/lib/cart/events";
 import AddToCartButton from "@/components/cart/AddToCartButton";
@@ -95,7 +97,7 @@ export default function CartClient() {
   }, [supabase]);
 
   useEffect(() => {
-    loadCart();
+    loadCart(); // eslint-disable-line react-hooks/set-state-in-effect
   }, [loadCart]);
 
   const loadSuggestions = useCallback(
@@ -138,7 +140,7 @@ export default function CartClient() {
   );
 
   useEffect(() => {
-    loadSuggestions(items);
+    loadSuggestions(items); // eslint-disable-line react-hooks/set-state-in-effect
   }, [items, loadSuggestions]);
 
   const updateQuantity = async (itemId: string, nextQuantity: number) => {
@@ -148,6 +150,10 @@ export default function CartClient() {
 
     if (nextQuantity <= 0) {
       await supabase.from("cart_items").delete().eq("id", itemId);
+      await supabase
+        .from("carts")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", cartId);
       await loadCart();
       return;
     }
@@ -159,11 +165,21 @@ export default function CartClient() {
         updated_at: new Date().toISOString(),
       })
       .eq("id", itemId);
+    await supabase
+      .from("carts")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", cartId);
     await loadCart();
   };
 
   const removeItem = async (itemId: string) => {
     await supabase.from("cart_items").delete().eq("id", itemId);
+    if (cartId) {
+      await supabase
+        .from("carts")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", cartId);
+    }
     await loadCart();
   };
 
@@ -411,7 +427,7 @@ export default function CartClient() {
                   className="flex h-full flex-col rounded-3xl border border-zinc-200 bg-white p-4 shadow-sm"
                 >
                   <Link
-                    href={`/produto/${suggestion.id}`}
+                    href={buildListingPath(suggestion.id, suggestion.title)}
                     className="group block"
                   >
                     <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-zinc-50">
@@ -442,6 +458,13 @@ export default function CartClient() {
                   <div className="mt-4">
                     <AddToCartButton
                       listingId={suggestion.id}
+                      metaProduct={{
+                        catalogId: buildMetaCatalogListingId(suggestion.id),
+                        title: suggestion.title,
+                        priceCents: suggestion.price_cents,
+                        category: suggestion.family ?? "Marketplace",
+                        brand: suggestion.family ?? "GANM OLS",
+                      }}
                       label="Adicionar"
                       className="w-full rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold text-white"
                     />

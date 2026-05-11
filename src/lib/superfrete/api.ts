@@ -1,4 +1,5 @@
 import { SuperFreteError, superfreteFetch } from "@/lib/superfrete/client";
+import { buildSuperfretePrintUrl } from "@/lib/superfrete/print-url";
 
 type QuotePayload = {
   from: { postal_code: string };
@@ -77,7 +78,15 @@ export async function getOrderInfo(id: string) {
         ? data.print_url
         : null;
   const status = typeof data?.status === "string" ? data.status : null;
-  return { tracking, printUrl, status, raw: data };
+  const orderId =
+    typeof data?.id === "number"
+      ? String(data.id)
+      : typeof data?.id === "string"
+        ? data.id
+        : typeof data?.protocol === "string"
+          ? data.protocol
+          : id;
+  return { tracking, printUrl, status, orderId, raw: data };
 }
 
 export async function printTags({ orders }: { orders: string[] }) {
@@ -97,11 +106,22 @@ export async function printTags({ orders }: { orders: string[] }) {
 }
 
 export async function getPrintLink(tagId: string) {
+  const info = await getOrderInfo(tagId);
+  const canPrint =
+    String(info.status ?? "").toLowerCase() === "released" ||
+    Boolean(info.tracking);
+  if (!canPrint) {
+    return { url: null, raw: info.raw };
+  }
+  const stableUrl = buildSuperfretePrintUrl(info.orderId || tagId);
+  if (stableUrl) {
+    return { url: stableUrl, raw: info.raw };
+  }
+
   const printed = await printTags({ orders: [tagId] });
   if (printed.url) {
     return { url: printed.url, raw: printed.raw };
   }
-  const info = await getOrderInfo(tagId);
   return { url: info.printUrl, raw: info.raw };
 }
 

@@ -12,6 +12,7 @@ import {
 import { calculateShipping } from "@/lib/shipping/superfrete";
 import { resolvePackageDimensions } from "@/lib/shipping/presets";
 import { createCartLabel } from "@/lib/superfrete/api";
+import { insertNotificationsWithPush } from "@/lib/push/delivery";
 
 const DOC_REQUIRED_SERVICES = new Set(["3", "31"]);
 
@@ -226,6 +227,8 @@ export async function POST(request: Request) {
       });
     }
 
+    const orderId = randomUUID();
+
     let shippingCostCents = 0;
     let shippingServiceId: string | null = null;
     let shippingServiceName: string | null = null;
@@ -337,6 +340,10 @@ export async function POST(request: Request) {
 
         const cartPayload: Record<string, unknown> = {
           platform: "GANM OLS",
+          order: {
+            id: orderId,
+            description: listing.title ?? "Pedido GANM OLS",
+          },
           service: Number.isFinite(serviceValue) ? serviceValue : serviceIdForLabel,
           from: {
             name: fromName,
@@ -422,7 +429,6 @@ export async function POST(request: Request) {
       });
     }
 
-    const orderId = randomUUID();
     orderIds.push(orderId);
     orderRows.push({
       id: orderId,
@@ -514,6 +520,69 @@ export async function POST(request: Request) {
     .from("orders")
     .update({ mp_preference_id: preferenceResult.id ?? null })
     .in("id", orderIds);
+
+  // Notifications: cart checkout started (buyer + sellers + admins)
+  try {
+    const notifications: {
+      user_id: string;
+      title: string;
+      body?: string | null;
+      link?: string | null;
+      type?: string | null;
+    }[] = [];
+
+    notifications.push({
+      user_id: user.id,
+      title: "Compra nao finalizada",
+      body: `Finalize seu carrinho com ${orderIds.length} item${
+        orderIds.length === 1 ? "" : "s"
+      } no checkout.`,
+      link: `/checkout/carrinho`,
+      type: "orders",
+    });
+
+    const sellerCounts = new Map<string, number>();
+    orderRows.forEach((row) => {
+      const sellerId = String((row as { seller_user_id?: string }).seller_user_id ?? "").trim();
+      if (!sellerId) return;
+      sellerCounts.set(sellerId, (sellerCounts.get(sellerId) ?? 0) + 1);
+    });
+
+    sellerCounts.forEach((count, sellerId) => {
+      notifications.push({
+        user_id: sellerId,
+        title: "Checkout iniciado",
+        body: `Um comprador iniciou checkout com ${count} item${
+          count === 1 ? "" : "s"
+        }.`,
+        link: `/vender`,
+        type: "orders",
+      });
+    });
+
+    const { data: admins } = await admin.from("admins").select("user_id");
+    const adminIds = (admins ?? [])
+      .map((row) => row.user_id)
+      .filter((id): id is string => Boolean(id));
+
+    adminIds.forEach((adminId) => {
+      notifications.push({
+        user_id: adminId,
+        title: "Checkout iniciado",
+        body: `Checkout iniciado no carrinho com ${orderIds.length} item${
+          orderIds.length === 1 ? "" : "s"
+        }.`,
+        link: `/painel-ganm-ols/controle`,
+        type: "orders",
+      });
+    });
+
+    if (notifications.length > 0) {
+      await insertNotificationsWithPush(admin, notifications);
+    }
+  } catch {
+    // Best-effort notifications only.
+  }
 
   return NextResponse.redirect(initPoint, { status: 303 });
 }

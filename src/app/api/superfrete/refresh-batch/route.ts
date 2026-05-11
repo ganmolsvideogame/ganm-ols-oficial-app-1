@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
-import { getOrderInfo, getPrintableUrl } from "@/lib/superfrete/api";
+import { refreshOrderSuperfrete } from "@/lib/superfrete/refresh";
 
 type RefreshPayload = {
   order_ids?: string[];
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   const { data: orders } = await supabase
     .from("orders")
     .select(
-      "id, buyer_user_id, seller_user_id, superfrete_id, superfrete_status, superfrete_print_url, superfrete_tracking"
+      "id, listing_id, buyer_user_id, seller_user_id, quantity, shipping_service_id, superfrete_id, superfrete_tag_id, superfrete_status, superfrete_print_url, superfrete_tracking"
     )
     .in("id", orderIds)
     .or(`buyer_user_id.eq.${user.id},seller_user_id.eq.${user.id}`);
@@ -41,32 +41,11 @@ export async function POST(request: Request) {
   let updated = 0;
 
   for (const order of orders.slice(0, 5)) {
-    if (!order.superfrete_id) {
-      continue;
-    }
-    const alreadyReleased =
-      order.superfrete_status === "released" &&
-      Boolean(order.superfrete_print_url);
-    if (alreadyReleased) {
-      continue;
-    }
     try {
-      const info = await getOrderInfo(order.superfrete_id);
-      const printOverride =
-        info.status === "released"
-          ? await getPrintableUrl(order.superfrete_id)
-          : null;
-      const printUrl = printOverride?.url || info.printUrl;
-      await supabase
-        .from("orders")
-        .update({
-          superfrete_status: info.status ?? "pending",
-          superfrete_tracking: info.tracking,
-          superfrete_print_url: printUrl,
-          superfrete_raw_info: info.raw,
-        })
-        .eq("id", order.id);
-      updated += 1;
+      const result = await refreshOrderSuperfrete(supabase, order);
+      if (result.updated) {
+        updated += 1;
+      }
     } catch {
       // Ignore individual refresh errors to avoid blocking others.
     }

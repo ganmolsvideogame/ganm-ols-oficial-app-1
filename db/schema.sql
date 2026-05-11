@@ -4,6 +4,9 @@ create table if not exists public.profiles (
   id uuid primary key,
   email text,
   display_name text,
+  store_bio text,
+  store_avatar_path text,
+  store_banner_path text,
   phone text,
   address_line1 text,
   address_line2 text,
@@ -26,6 +29,9 @@ create table if not exists public.profiles (
 
 alter table public.profiles add column if not exists email text;
 alter table public.profiles add column if not exists display_name text;
+alter table public.profiles add column if not exists store_bio text;
+alter table public.profiles add column if not exists store_avatar_path text;
+alter table public.profiles add column if not exists store_banner_path text;
 alter table public.profiles add column if not exists phone text;
 alter table public.profiles add column if not exists address_line1 text;
 alter table public.profiles add column if not exists address_line2 text;

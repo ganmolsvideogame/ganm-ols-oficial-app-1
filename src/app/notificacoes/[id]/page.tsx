@@ -56,6 +56,18 @@ export default async function NotificationDetailPage({ params }: PageProps) {
       .eq("user_id", user.id);
   }
 
+  await admin.from("system_events").insert({
+    event_type: "notification_viewed",
+    actor_id: user.id,
+    entity_type: "notification",
+    entity_id: notificationId,
+    metadata: {
+      notification_type: notification.type ?? null,
+      target_url: notification.link ?? null,
+      source: "notification_details",
+    },
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -92,7 +104,7 @@ export default async function NotificationDetailPage({ params }: PageProps) {
         </div>
         {notification.link ? (
           <Link
-            href={notification.link}
+            href={`/notificacoes/${notificationId}/abrir`}
             className="mt-4 inline-flex rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold text-white"
           >
             Abrir destino

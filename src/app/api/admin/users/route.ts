@@ -17,6 +17,14 @@ function buildRedirect(
   return NextResponse.redirect(url, { status: 303 });
 }
 
+function resolveAdminRedirectPath(formData: FormData, fallback: string) {
+  const raw = String(formData.get("redirect_to") ?? "").trim();
+  if (raw.startsWith(ADMIN_PATHS.base)) {
+    return raw;
+  }
+  return fallback;
+}
+
 export async function POST(request: Request) {
   const formData = await request.formData();
   const userId = String(formData.get("user_id") ?? "").trim();
@@ -25,9 +33,10 @@ export async function POST(request: Request) {
   const role = String(formData.get("role") ?? "").trim();
   const reason = String(formData.get("reason") ?? "").trim();
   const endsAtRaw = String(formData.get("ends_at") ?? "").trim();
+  const redirectPath = resolveAdminRedirectPath(formData, ADMIN_PATHS.users);
 
   if (!userId || !action) {
-    return buildRedirect(request, ADMIN_PATHS.users, {
+    return buildRedirect(request, redirectPath, {
       error: "Acao invalida",
     });
   }
@@ -121,13 +130,13 @@ export async function POST(request: Request) {
     errorMessage = error?.message ?? null;
     successMessage = "KYC reprovado";
   } else {
-    return buildRedirect(request, ADMIN_PATHS.users, {
+    return buildRedirect(request, redirectPath, {
       error: "Acao desconhecida",
     });
   }
 
   if (errorMessage) {
-    return buildRedirect(request, ADMIN_PATHS.users, {
+    return buildRedirect(request, redirectPath, {
       error: errorMessage,
     });
   }
@@ -145,7 +154,7 @@ export async function POST(request: Request) {
     },
   });
 
-  return buildRedirect(request, ADMIN_PATHS.users, {
+  return buildRedirect(request, redirectPath, {
     success: successMessage,
   });
 }

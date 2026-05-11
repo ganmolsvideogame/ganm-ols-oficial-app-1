@@ -1,11 +1,14 @@
 import Link from "next/link";
 
+import FavoritesClient, { type FavoriteRow } from "@/components/favorites/FavoritesClient";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
   const supabase = await createClient();
+  const admin = createAdminClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -29,6 +32,16 @@ export default async function Page() {
     );
   }
 
+  const { data: favoritesData } = await admin
+    .from("listing_favorites")
+    .select(
+      "id, listing_id, created_at, listings(id, title, price_cents, thumbnail_url, platform, family, condition, shipping_available, free_shipping, status)"
+    )
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  const favorites = (favoritesData ?? []) as FavoriteRow[];
+
   return (
     <div className="space-y-8">
       <div className="space-y-2">
@@ -38,9 +51,7 @@ export default async function Page() {
         </p>
       </div>
 
-      <div className="rounded-3xl border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
-        Nenhum favorito salvo ainda.
-      </div>
+      <FavoritesClient initial={favorites} />
     </div>
   );
 }

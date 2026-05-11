@@ -1,0 +1,31 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="900" fill="#F8FAFC"/>
+  <rect x="72" y="72" width="1456" height="756" rx="40" fill="url(#bg)"/>
+  <circle cx="244" cy="238" r="84" fill="#22C55E" fill-opacity="0.16"/>
+  <circle cx="1390" cy="734" r="116" fill="#0F172A" fill-opacity="0.08"/>
+  <rect x="136" y="132" width="264" height="48" rx="24" fill="#FFFFFF"/>
+  <text x="168" y="164" fill="#0F172A" font-size="24" font-family="Arial, sans-serif" font-weight="700">GANM OLS BLOG</text>
+  <text x="136" y="292" fill="#0F172A" font-size="86" font-family="Arial, sans-serif" font-weight="700">Super Mario World</text>
+  <text x="136" y="390" fill="#0F172A" font-size="42" font-family="Arial, sans-serif" font-weight="500">o lançamento que redefiniu a era 16-bit</text>
+  <text x="136" y="446" fill="#0F172A" font-size="42" font-family="Arial, sans-serif" font-weight="500">do Super Nintendo</text>
+  <text x="136" y="566" fill="#334155" font-size="30" font-family="Arial, sans-serif">Dinosaur Land, Yoshi, mundos secretos e o mapa</text>
+  <text x="136" y="608" fill="#334155" font-size="30" font-family="Arial, sans-serif">que virou referência definitiva para o SNES.</text>
+  <rect x="136" y="670" width="356" height="64" rx="32" fill="#0F172A"/>
+  <text x="176" y="712" fill="#FFFFFF" font-size="28" font-family="Arial, sans-serif" font-weight="700">Especial Nintendo</text>
+  <g opacity="0.92">
+    <ellipse cx="1190" cy="464" rx="220" ry="170" fill="#22C55E"/>
+    <ellipse cx="1190" cy="496" rx="172" ry="128" fill="#16A34A"/>
+    <circle cx="1234" cy="420" r="18" fill="#0F172A"/>
+    <circle cx="1242" cy="414" r="6" fill="#FFFFFF"/>
+    <ellipse cx="1118" cy="518" rx="58" ry="36" fill="#FFFFFF"/>
+    <ellipse cx="1096" cy="514" rx="18" ry="12" fill="#F87171"/>
+    <path d="M1058 604C1092 564 1142 542 1192 542C1244 542 1292 566 1324 604" stroke="#0F172A" stroke-width="18" stroke-linecap="round"/>
+  </g>
+  <defs>
+    <linearGradient id="bg" x1="72" y1="72" x2="1528" y2="828" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E2FBE8"/>
+      <stop offset="0.58" stop-color="#DBEAFE"/>
+      <stop offset="1" stop-color="#F8FAFC"/>
+    </linearGradient>
+  </defs>
+</svg>

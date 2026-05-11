@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import CheckoutSummary from "@/components/checkout/CheckoutSummary";
+import { buildListingPath } from "@/lib/listings/url";
 import { createClient } from "@/lib/supabase/server";
 import { formatCentsToBRL } from "@/lib/utils/price";
 
@@ -65,19 +66,21 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
     .eq("id", listingId)
     .maybeSingle();
 
+  const productHref = listing ? buildListingPath(listing.id, listing.title) : `/produto/${listingId}`;
+
   if (!listing || listing.status !== "active") {
-    redirect(`/produto/${listingId}?error=Anuncio+indisponivel`);
+    redirect(`${productHref}?error=Anuncio+indisponivel`);
   }
 
   if (
     typeof listing.quantity_available === "number" &&
     listing.quantity_available <= 0
   ) {
-    redirect(`/produto/${listingId}?error=Produto+sem+estoque`);
+    redirect(`${productHref}?error=Produto+sem+estoque`);
   }
 
   if (listing.listing_type === "auction") {
-    redirect(`/produto/${listingId}?error=Este+anuncio+esta+em+modo+de+lances`);
+    redirect(`${productHref}?error=Este+anuncio+esta+em+modo+de+lances`);
   }
 
   const { data: profile } = await supabase
@@ -207,7 +210,7 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
                 {upsellPlatform.map((item) => (
                   <Link
                     key={item.id}
-                    href={`/produto/${item.id}`}
+                    href={buildListingPath(item.id, item.title)}
                     className="group flex items-center gap-3 rounded-2xl border border-zinc-200 p-3 transition hover:border-zinc-400"
                   >
                     <div className="h-16 w-16 overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
@@ -249,7 +252,7 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
                 {upsellFamily.map((item) => (
                   <Link
                     key={item.id}
-                    href={`/produto/${item.id}`}
+                    href={buildListingPath(item.id, item.title)}
                     className="group flex items-center gap-3 rounded-2xl border border-zinc-200 p-3 transition hover:border-zinc-400"
                   >
                     <div className="h-16 w-16 overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">

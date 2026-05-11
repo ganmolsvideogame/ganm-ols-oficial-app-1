@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatCentsToBRL } from "@/lib/utils/price";
 import { BUYER_APPROVAL_DAYS } from "@/lib/config/commerce";
+import { buildSuperfretePrintUrl } from "@/lib/superfrete/print-url";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +87,22 @@ function computeNetCents(order: {
   return Math.max(0, net);
 }
 
+function formatSuperfreteError(message?: string | null) {
+  if (!message) {
+    return null;
+  }
+  if (
+    message.includes("Sem saldo na carteira") ||
+    message.toLowerCase().includes("saldo")
+  ) {
+    return "Etiqueta pendente: sem saldo na carteira SuperFrete.";
+  }
+  if (message.length > 200) {
+    return `${message.slice(0, 200)}...`;
+  }
+  return message;
+}
+
 export default async function SellerOrderDetailsPage({ params }: PageProps) {
   const supabase = await createClient();
   const admin = createAdminClient();
@@ -105,7 +122,7 @@ export default async function SellerOrderDetailsPage({ params }: PageProps) {
   const { data: order, error } = await admin
     .from("orders")
     .select(
-      "id, listing_id, buyer_user_id, seller_user_id, amount_cents, fee_cents, shipping_cost_cents, shipping_paid_by, shipping_service_name, status, created_at, approved_at, delivered_at, available_at, buyer_approval_deadline_at, payment_deadline_at, payout_status, payout_requested_at, shipping_status, shipping_provider, shipping_tracking, shipping_label_url, superfrete_id, superfrete_status, superfrete_print_url, cancel_status, cancel_requested_by, cancel_requested_at, cancel_deadline_at, cancel_reason, listings(title, thumbnail_url, listing_type)"
+      "id, listing_id, buyer_user_id, seller_user_id, amount_cents, fee_cents, shipping_cost_cents, shipping_paid_by, shipping_service_name, status, created_at, approved_at, delivered_at, available_at, buyer_approval_deadline_at, payment_deadline_at, payout_status, payout_requested_at, shipping_status, shipping_provider, shipping_tracking, shipping_label_url, superfrete_id, superfrete_status, superfrete_tracking, superfrete_print_url, superfrete_last_error, cancel_status, cancel_requested_by, cancel_requested_at, cancel_deadline_at, cancel_reason, listings(title, thumbnail_url, listing_type)"
     )
     .eq("id", orderId)
     .maybeSingle();
@@ -138,6 +155,8 @@ export default async function SellerOrderDetailsPage({ params }: PageProps) {
   const netCents = computeNetCents(order);
   const isReleased = Boolean(availableAt && availableAt <= new Date());
   const orderListing = order.listings?.[0] ?? null;
+  const printableLabelUrl =
+    buildSuperfretePrintUrl(order.superfrete_id) || order.superfrete_print_url;
 
   return (
     <div className="space-y-6">
@@ -297,18 +316,35 @@ export default async function SellerOrderDetailsPage({ params }: PageProps) {
             <p>Status do envio: {order.shipping_status ?? "pendente"}</p>
             <p>Servico: {order.shipping_service_name ?? "Nao informado"}</p>
             {order.shipping_provider ? <p>Transportadora: {order.shipping_provider}</p> : null}
-            {order.shipping_tracking ? <p>Rastreio: {order.shipping_tracking}</p> : null}
+            {order.shipping_tracking || order.superfrete_tracking ? (
+              <p>Rastreio: {order.shipping_tracking || order.superfrete_tracking}</p>
+            ) : null}
             {order.superfrete_status ? <p>Superfrete: {order.superfrete_status}</p> : null}
+            {order.superfrete_last_error ? (
+              <p className="text-rose-700">
+                {formatSuperfreteError(order.superfrete_last_error)}
+              </p>
+            ) : null}
           </div>
-          {order.superfrete_print_url ? (
+          {printableLabelUrl && order.superfrete_status === "released" ? (
             <a
-              href={order.superfrete_print_url}
+              href={printableLabelUrl}
               target="_blank"
               rel="noreferrer"
               className="mt-4 inline-flex rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700"
             >
               Imprimir etiqueta
             </a>
+          ) : order.superfrete_id ? (
+            <form action="/api/superfrete/refresh" method="post" className="mt-4">
+              <input type="hidden" name="order_id" value={order.id} />
+              <button
+                type="submit"
+                className="inline-flex rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700"
+              >
+                Tentar liberar etiqueta
+              </button>
+            </form>
           ) : null}
         </div>
       </section>

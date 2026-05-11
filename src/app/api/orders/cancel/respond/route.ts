@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 
+import { createPaymentClient } from "@/lib/mercadopago/client";
+import { cancelPayment } from "@/lib/mercadopago/cancel";
 import { refundPayment } from "@/lib/mercadopago/refund";
 import { cancelLabel } from "@/lib/superfrete/api";
+import { sendAdminEventAlertEmail } from "@/lib/brevo/admin-alerts";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { insertNotificationsWithPush } from "@/lib/push/delivery";
 
 function buildRedirect(request: Request, params?: Record<string, string>) {
   const url = new URL("/vender", request.url);
@@ -13,6 +17,36 @@ function buildRedirect(request: Request, params?: Record<string, string>) {
     });
   }
   return NextResponse.redirect(url, { status: 303 });
+}
+
+function normalizeStatus(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+async function findLatestPaymentIdByExternalReference(externalReference: string) {
+  const ref = String(externalReference ?? "").trim();
+  if (!ref) {
+    return null;
+  }
+  try {
+    const paymentClient = createPaymentClient();
+    const search = (await paymentClient.search({
+      options: {
+        external_reference: ref,
+        sort: "date_created",
+        criteria: "desc",
+        limit: 10,
+        offset: 0,
+      },
+    })) as { results?: Array<{ id?: unknown }> };
+    const results = Array.isArray(search?.results) ? search.results : [];
+    const id = results
+      .map((item) => String(item?.id ?? "").trim())
+      .find(Boolean);
+    return id || null;
+  } catch {
+    return null;
+  }
 }
 
 export async function POST(request: Request) {
@@ -82,6 +116,8 @@ export async function POST(request: Request) {
     updatePayload.cancel_status = "approved";
     updatePayload.status = "cancelled";
     updatePayload.shipping_status = "cancelled";
+    updatePayload.superfrete_tracking = null;
+    updatePayload.superfrete_print_url = null;
   } else if (decision === "reject") {
     updatePayload.cancel_status = "rejected";
   } else {
@@ -126,20 +162,150 @@ export async function POST(request: Request) {
       }
     : null;
 
-  const notifications = [notifyBuyer, notifySeller].filter(Boolean);
+  const notifications = [notifyBuyer, notifySeller].filter(
+    (item): item is {
+      user_id: string;
+      title: string;
+      body: string;
+      link: string;
+    } => Boolean(item)
+  );
   if (notifications.length > 0) {
-    await admin.from("notifications").insert(notifications);
+    await insertNotificationsWithPush(admin, notifications);
   }
 
-  if (decision === "approve" && order.mp_payment_id) {
-    const refund = await refundPayment(String(order.mp_payment_id));
-    await admin.from("payment_events").insert({
-      order_id: orderId,
-      provider: "mercadopago",
-      event_type: "refund",
-      status: refund.ok ? "success" : "error",
-      payload: refund.ok ? refund.data : { error: refund.error },
+  try {
+    const origin = new URL(request.url).origin;
+    const adminAlert = await sendAdminEventAlertEmail({
+      admin,
+      subject:
+        decision === "approve"
+          ? `Cancelamento aprovado: ${orderId.slice(0, 8).toUpperCase()}`
+          : `Cancelamento rejeitado: ${orderId.slice(0, 8).toUpperCase()}`,
+      eyebrow:
+        decision === "approve" ? "Cancelamento aprovado" : "Cancelamento rejeitado",
+      title:
+        decision === "approve"
+          ? `Pedido ${orderId.slice(0, 8).toUpperCase()} foi cancelado`
+          : `Pedido ${orderId.slice(0, 8).toUpperCase()} segue ativo`,
+      intro: "A decisao do vendedor para um pedido importante foi registrada.",
+      body: [
+        `Pedido: ${orderId}`,
+        `Vendedor: ${user.id}`,
+        `Comprador: ${String(order.buyer_user_id ?? "Nao informado")}`,
+        `Decisao: ${decision === "approve" ? "Aprovar cancelamento" : "Rejeitar cancelamento"}`,
+        `Motivo informado: ${reason || "Nao informado"}`,
+      ],
+      actionLabel: "Abrir pedidos",
+      actionPath: "/painel-ganm-ols/pedidos",
+      origin,
+      tags: ["admin-alert", "order-cancel-response", `decision:${decision}`],
     });
+
+    await admin.from("system_events").insert({
+      event_type: "admin_order_cancel_response_email_sent",
+      entity_type: "order",
+      entity_id: orderId,
+      actor_id: user.id,
+      metadata: {
+        result: adminAlert,
+        decision,
+        reason,
+      },
+    });
+  } catch (err) {
+    console.warn("Admin order cancel response email failed:", err);
+  }
+
+  if (decision === "approve") {
+    let paymentId = order.mp_payment_id ? String(order.mp_payment_id).trim() : null;
+    if (!paymentId) {
+      paymentId = await findLatestPaymentIdByExternalReference(orderId);
+    }
+
+    if (paymentId) {
+      // Safety: if this payment id is shared across multiple orders (cart checkout),
+      // avoid auto-refund (would refund the whole payment) and require manual action.
+      const { data: sharedOrders } = await admin
+        .from("orders")
+        .select("id")
+        .eq("mp_payment_id", paymentId)
+        .limit(3);
+      const isShared = (sharedOrders ?? []).length > 1;
+
+      if (isShared) {
+        await admin.from("payment_events").insert({
+          order_id: orderId,
+          provider: "mercadopago",
+          event_type: "refund",
+          status: "error",
+          payload: {
+            payment_id: paymentId,
+            error:
+              "Pagamento compartilhado (carrinho). Reembolso/cancelamento deve ser feito manualmente.",
+          },
+        });
+      } else {
+        let paymentStatus: string | null = null;
+        try {
+          const paymentClient = createPaymentClient();
+          const payment = (await paymentClient.get({ id: paymentId })) as {
+            status?: unknown;
+          };
+          paymentStatus = normalizeStatus(payment.status);
+        } catch {
+          paymentStatus = null;
+        }
+
+        const cancelableStatuses = new Set([
+          "pending",
+          "in_process",
+          "in_mediation",
+          "authorized",
+        ]);
+
+        if (paymentStatus === "approved") {
+          const refund = await refundPayment(String(paymentId));
+          await admin.from("payment_events").insert({
+            order_id: orderId,
+            provider: "mercadopago",
+            event_type: "refund",
+            status: refund.ok ? "success" : "error",
+            payload: refund.ok ? refund.data : { error: refund.error },
+          });
+        } else if (paymentStatus && cancelableStatuses.has(paymentStatus)) {
+          const cancel = await cancelPayment(String(paymentId));
+          await admin.from("payment_events").insert({
+            order_id: orderId,
+            provider: "mercadopago",
+            event_type: "cancel",
+            status: cancel.ok ? "success" : "error",
+            payload: cancel.ok ? cancel.data : { error: cancel.error },
+          });
+        } else if (!paymentStatus) {
+          // Best-effort: try cancel first; if that fails, try refund.
+          const cancel = await cancelPayment(String(paymentId));
+          if (cancel.ok) {
+            await admin.from("payment_events").insert({
+              order_id: orderId,
+              provider: "mercadopago",
+              event_type: "cancel",
+              status: "success",
+              payload: cancel.data,
+            });
+          } else {
+            const refund = await refundPayment(String(paymentId));
+            await admin.from("payment_events").insert({
+              order_id: orderId,
+              provider: "mercadopago",
+              event_type: "refund",
+              status: refund.ok ? "success" : "error",
+              payload: refund.ok ? refund.data : { error: refund.error ?? cancel.error },
+            });
+          }
+        }
+      }
+    }
   }
 
   if (decision === "approve") {
@@ -157,6 +323,8 @@ export async function POST(request: Request) {
           .from("orders")
           .update({
             superfrete_status: result.status ?? "cancelled",
+            superfrete_tracking: null,
+            superfrete_print_url: null,
             shipping_canceled_at: new Date().toISOString(),
             shipping_cancel_failed: false,
             shipping_manual_action: false,

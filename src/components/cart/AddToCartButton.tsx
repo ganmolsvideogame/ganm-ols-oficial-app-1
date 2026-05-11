@@ -3,11 +3,20 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import {
+  buildMetaCatalogEventPayload,
+  type MetaCatalogEventInput,
+} from "@/lib/analytics/metaCatalog";
+import {
+  queuePendingMetaEvent,
+  trackMetaEvent,
+} from "@/lib/analytics/metaPixel";
 import { createClient } from "@/lib/supabase/client";
 import { notifyCartCount } from "@/lib/cart/events";
 
 type AddToCartButtonProps = {
   listingId: string;
+  metaProduct?: MetaCatalogEventInput;
   className?: string;
   label?: string;
   redirectTo?: string;
@@ -16,6 +25,7 @@ type AddToCartButtonProps = {
 
 export default function AddToCartButton({
   listingId,
+  metaProduct,
   className,
   label = "Adicionar ao carrinho",
   redirectTo,
@@ -144,6 +154,11 @@ export default function AddToCartButton({
       }
     }
 
+    await supabase
+      .from("carts")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", cartId);
+
     await fetch("/api/notifications/cart-add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -158,6 +173,17 @@ export default function AddToCartButton({
     const nextCount =
       items?.reduce((sum, item) => sum + (item.quantity ?? 0), 0) ?? 0;
     notifyCartCount(nextCount);
+
+    if (metaProduct?.catalogId) {
+      const metaPayload = buildMetaCatalogEventPayload({
+        ...metaProduct,
+        quantity: 1,
+      });
+      const sent = trackMetaEvent("AddToCart", metaPayload);
+      if (!sent) {
+        queuePendingMetaEvent("AddToCart", metaPayload);
+      }
+    }
 
     setMessage("Item adicionado ao carrinho.");
     setIsLoading(false);

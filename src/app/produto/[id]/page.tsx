@@ -1,9 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { permanentRedirect, redirect } from "next/navigation";
 
+import MetaCatalogViewTracker from "@/components/analytics/MetaCatalogViewTracker";
+import ListingViewTracker from "@/components/analytics/ListingViewTracker";
 import PurchaseActions from "@/components/product/PurchaseActions";
+import ProductGallery from "@/components/product/ProductGallery";
+import ShareProductButton from "@/components/product/ShareProductButton";
 import StarRatingInput from "@/components/reviews/StarRatingInput";
 import ShippingQuote from "@/components/shipping/ShippingQuote";
+import FavoriteButton from "@/components/social/FavoriteButton";
+import FollowSellerButton from "@/components/social/FollowSellerButton";
+import ProductCard from "@/components/ui/ProductCard";
+import { ProductCarousel } from "@/components/ml/ProductCarousel";
 import { FAMILIES } from "@/lib/mock/data";
 import {
   closeExpiredAuctions,
@@ -11,8 +20,12 @@ import {
   AUCTION_PAYMENT_WINDOW_DAYS,
 } from "@/lib/auctions";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { buildMetaCatalogListingId } from "@/lib/analytics/metaCatalog";
+import { buildListingPath, slugifyListingTitle } from "@/lib/listings/url";
 import { createClient } from "@/lib/supabase/server";
+import { buildAbsoluteUrl } from "@/lib/utils/site";
 import { formatCentsToBRL, parsePriceToCents } from "@/lib/utils/price";
+import { insertNotificationsWithPush } from "@/lib/push/delivery";
 import {
   calculateMinBidCents,
   DEFAULT_AUCTION_INCREMENT_PERCENT,
@@ -20,27 +33,25 @@ import {
 
 export const dynamic = "force-dynamic";
 
+type PageParams = {
+  id: string;
+  slug?: string;
+};
+
+type PageSearchParams = {
+  [key: string]: string | string[] | undefined;
+  error?: string;
+  bid_error?: string;
+  bid_success?: string;
+  review_error?: string;
+  review_success?: string;
+  qa_error?: string;
+  qa_success?: string;
+};
+
 type PageProps = {
-  params: { id: string };
-  searchParams?:
-    | {
-        error?: string;
-        bid_error?: string;
-        bid_success?: string;
-        review_error?: string;
-        review_success?: string;
-        qa_error?: string;
-        qa_success?: string;
-      }
-    | Promise<{
-        error?: string;
-        bid_error?: string;
-        bid_success?: string;
-        review_error?: string;
-        review_success?: string;
-        qa_error?: string;
-        qa_success?: string;
-      }>;
+  params: PageParams | Promise<PageParams>;
+  searchParams?: PageSearchParams | Promise<PageSearchParams>;
 };
 
 type ListingRow = {
@@ -104,6 +115,31 @@ type QuestionRow = {
   listing_answers?: AnswerRow[] | null;
 };
 
+type RelatedListingRow = {
+  id: string;
+  title: string;
+  price_cents: number | null;
+  condition: string | null;
+  family: string | null;
+  platform: string | null;
+  shipping_available: boolean | null;
+  free_shipping: boolean | null;
+  thumbnail_url: string | null;
+  listing_type: string | null;
+};
+
+type MetadataListingRow = Pick<
+  ListingRow,
+  | "id"
+  | "title"
+  | "price_cents"
+  | "condition"
+  | "platform"
+  | "description"
+  | "thumbnail_url"
+  | "status"
+>;
+
 function formatCondition(value: string | null) {
   if (!value) {
     return "Sem condicao";
@@ -116,6 +152,84 @@ function formatShipping(isAvailable: boolean | null, isFree: boolean | null) {
     return "Frete gratis";
   }
   return isAvailable === false ? "Envio a combinar" : "Envio disponivel";
+}
+
+function formatConditionLabel(value: string | null) {
+  if (!value) {
+    return null;
+  }
+  const normalized = value.toLowerCase();
+  if (["novo", "new"].includes(normalized)) {
+    return "Novo";
+  }
+  if (["usado", "used", "seminovo", "semi-novo"].includes(normalized)) {
+    return "Usado";
+  }
+  if (["recondicionado", "refurbished"].includes(normalized)) {
+    return "Recondicionado";
+  }
+  return value;
+}
+
+function formatShippingLabel(
+  shippingAvailable: boolean | null,
+  freeShipping: boolean | null
+) {
+  if (freeShipping) {
+    return "Frete gratis";
+  }
+  if (shippingAvailable) {
+    return "Envio disponivel";
+  }
+  return null;
+}
+
+function buildMetadataDescription(listing: MetadataListingRow) {
+  const cleanedDescription = listing.description?.replace(/\s+/g, " ").trim();
+  if (cleanedDescription) {
+    return cleanedDescription.length > 160
+      ? `${cleanedDescription.slice(0, 157).trimEnd()}...`
+      : cleanedDescription;
+  }
+
+  const fallbackParts = [
+    listing.platform,
+    formatConditionLabel(listing.condition),
+    typeof listing.price_cents === "number"
+      ? formatCentsToBRL(listing.price_cents)
+      : null,
+  ].filter(Boolean);
+
+  const fallbackText =
+    fallbackParts.length > 0
+      ? `${listing.title} - ${fallbackParts.join(" - ")}.`
+      : `${listing.title} na GANM OLS.`;
+
+  return fallbackText.length > 160
+    ? `${fallbackText.slice(0, 157).trimEnd()}...`
+    : fallbackText;
+}
+
+function buildSearchParamsSuffix(searchParams?: PageSearchParams) {
+  const params = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(searchParams ?? {})) {
+    if (typeof value === "string" && value) {
+      params.set(key, value);
+      continue;
+    }
+
+    if (Array.isArray(value)) {
+      value
+        .filter((item) => typeof item === "string" && item)
+        .forEach((item) => {
+          params.append(key, item);
+        });
+    }
+  }
+
+  const queryString = params.toString();
+  return queryString ? `?${queryString}` : "";
 }
 
 function formatBidDate(value: string | null) {
@@ -180,6 +294,111 @@ function StarRatingDisplay({
       })}
     </div>
   );
+}
+
+async function getListingMetadata(listingId: string) {
+  const admin = createAdminClient();
+  const { data: listing } = await admin
+    .from("listings")
+    .select(
+      "id, title, price_cents, condition, platform, description, thumbnail_url, status"
+    )
+    .eq("id", listingId)
+    .maybeSingle();
+
+  if (!listing) {
+    return null;
+  }
+
+  const { data: image } = await admin
+    .from("listing_images")
+    .select("path")
+    .eq("listing_id", listingId)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  const imageUrl = image?.path
+    ? admin.storage.from("listing-images").getPublicUrl(image.path).data.publicUrl
+    : listing.thumbnail_url;
+
+  return {
+    listing: listing as MetadataListingRow,
+    imageUrl: imageUrl || null,
+  };
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: PageParams | Promise<PageParams>;
+}): Promise<Metadata> {
+  const resolvedParams = await Promise.resolve(params);
+  const listingId = decodeURIComponent(String(resolvedParams.id ?? "").trim());
+
+  if (!listingId) {
+    return {
+      title: "Produto | GANM OLS",
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  const metadataSource = await getListingMetadata(listingId);
+
+  if (!metadataSource) {
+    return {
+      title: "Produto nao encontrado | GANM OLS",
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  const { listing, imageUrl } = metadataSource;
+  const canonicalPath = buildListingPath(listing.id, listing.title);
+  const description = buildMetadataDescription(listing);
+  const shouldIndex = listing.status === "active";
+
+  return {
+    title: `${listing.title} | GANM OLS`,
+    description,
+    alternates: {
+      canonical: canonicalPath,
+    },
+    robots: shouldIndex
+      ? undefined
+      : {
+          index: false,
+          follow: false,
+        },
+    openGraph: {
+      type: "website",
+      locale: "pt_BR",
+      siteName: "GANM OLS",
+      url: buildAbsoluteUrl(canonicalPath),
+      title: listing.title,
+      description,
+      images: imageUrl
+        ? [
+            {
+              url: imageUrl,
+              alt: listing.title,
+            },
+          ]
+        : undefined,
+    },
+    twitter: {
+      card: imageUrl ? "summary_large_image" : "summary",
+      title: listing.title,
+      description,
+      images: imageUrl ? [imageUrl] : undefined,
+    },
+  };
 }
 
 async function placeBid(formData: FormData) {
@@ -281,10 +500,18 @@ async function placeBid(formData: FormData) {
       link: `/painel-ganm-ols/controle`,
       type: "bids",
     })),
-  ].filter(Boolean);
+  ].filter(
+    (item): item is {
+      user_id: string;
+      title: string;
+      body: string;
+      link: string;
+      type: string;
+    } => Boolean(item)
+  );
 
   if (notifications.length > 0) {
-    await admin.from("notifications").insert(notifications);
+    await insertNotificationsWithPush(admin, notifications);
   }
 
   redirect(`${productPath}?bid_success=Lance+registrado`);
@@ -358,7 +585,7 @@ async function submitReview(formData: FormData) {
 
   const admin = createAdminClient();
   if (listing.seller_user_id && listing.seller_user_id !== user.id) {
-    await admin.from("notifications").insert({
+    await insertNotificationsWithPush(admin, {
       user_id: listing.seller_user_id,
       title: "Nova avaliacao recebida",
       body: `Um comprador avaliou ${listing.title ?? "seu anuncio"}.`,
@@ -411,7 +638,7 @@ async function submitQuestion(formData: FormData) {
 
   const admin = createAdminClient();
   if (listing.seller_user_id && listing.seller_user_id !== user.id) {
-    await admin.from("notifications").insert({
+    await insertNotificationsWithPush(admin, {
       user_id: listing.seller_user_id,
       title: "Nova pergunta recebida",
       body: `Pergunta no anuncio ${listing.title ?? ""}.`,
@@ -473,7 +700,7 @@ async function submitAnswer(formData: FormData) {
 
   const admin = createAdminClient();
   if (question.user_id && question.user_id !== user.id) {
-    await admin.from("notifications").insert({
+    await insertNotificationsWithPush(admin, {
       user_id: question.user_id,
       title: "Sua pergunta foi respondida",
       body: `Resposta no anuncio ${question.listings?.[0]?.title ?? ""}.`,
@@ -582,6 +809,16 @@ export default async function Page({ params, searchParams }: PageProps) {
       </div>
     );
   }
+
+  const requestedSlug = String(resolvedParams.slug ?? "").trim().toLowerCase();
+  const expectedSlug = slugifyListingTitle(listing.title);
+  const productPath = buildListingPath(listing.id, listing.title);
+
+  if (requestedSlug !== expectedSlug) {
+    permanentRedirect(`${productPath}${buildSearchParamsSuffix(resolvedSearchParams)}`);
+  }
+
+  const productUrl = buildAbsoluteUrl(productPath);
 
   const { data: sellerData } = await supabase
     .from("profiles")
@@ -720,8 +957,75 @@ export default async function Page({ params, searchParams }: PageProps) {
   const { data: isAdmin } = user ? await supabase.rpc("is_admin") : { data: false };
   const canAnswer = Boolean(user) && (isSellerUser || isAdmin === true);
 
+  const admin = createAdminClient();
+
+  const [{ data: favoriteRow }, followsCountResult, { data: listingViewsRows }] = await Promise.all([
+    user
+      ? supabase
+          .from("listing_favorites")
+          .select("id")
+          .eq("listing_id", listing.id)
+          .eq("user_id", user.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    admin
+      .from("seller_follows")
+      .select("id", { count: "exact", head: true })
+      .eq("seller_user_id", listing.seller_user_id),
+    admin
+      .from("analytics_events")
+      .select("listing_id")
+      .eq("event_type", "listing_view")
+      .eq("listing_id", listing.id),
+  ]);
+
+  const initialIsFavorite = Boolean((favoriteRow as { id?: string } | null)?.id);
+  const followerCount =
+    typeof followsCountResult.count === "number" ? followsCountResult.count : 0;
+  const viewCount = (listingViewsRows ?? []).length;
+
+  const relatedFilterFamily = listing.family ?? null;
+  const relatedFilterPlatform = listing.platform ?? null;
+
+  const relatedQuery = admin
+    .from("listings_with_boost")
+    .select(
+      "id, title, price_cents, condition, family, platform, shipping_available, free_shipping, thumbnail_url, listing_type"
+    )
+    .eq("status", "active")
+    .or("moderation_status.eq.approved,moderation_status.eq.pending,moderation_status.is.null")
+    .order("boost_priority", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(18);
+
+  if (relatedFilterFamily) {
+    relatedQuery.eq("family", relatedFilterFamily);
+  } else if (relatedFilterPlatform) {
+    relatedQuery.eq("platform", relatedFilterPlatform);
+  }
+
+  const { data: relatedData } =
+    relatedFilterFamily || relatedFilterPlatform ? await relatedQuery : { data: [] };
+
+  const relatedListings = (relatedData ?? [])
+    .filter((row) => row && (row as RelatedListingRow).id !== listing.id)
+    .slice(0, 12) as RelatedListingRow[];
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 overflow-x-hidden">
+      <ListingViewTracker listingId={listing.id} />
+      <MetaCatalogViewTracker
+        catalogId={buildMetaCatalogListingId(listing.id)}
+        title={listing.title}
+        priceCents={listing.price_cents}
+        category={
+          familyLabelBySlug[listing.family ?? ""] ??
+          listing.platform ??
+          listing.family ??
+          "Marketplace"
+        }
+        brand={listing.platform ?? listing.family ?? "GANM OLS"}
+      />
       {errorMessage ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           {errorMessage}
@@ -757,203 +1061,328 @@ export default async function Page({ params, searchParams }: PageProps) {
           {qaSuccessMessage}
         </div>
       ) : null}
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <div className="flex h-80 items-center justify-center overflow-hidden rounded-3xl border border-dashed border-zinc-200 bg-zinc-50 text-sm text-zinc-400">
-            {imageUrls.length > 0 ? (
-              <img
-                src={imageUrls[0].url}
-                alt={listing.title}
-                className="h-full w-full object-cover"
-              />
-            ) : listing.thumbnail_url ? (
-              <img
-                src={listing.thumbnail_url}
-                alt={listing.title}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              listing.platform || "Sem foto"
-            )}
-          </div>
-          {imageUrls.length > 1 ? (
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              {imageUrls.slice(1).map((image) => (
-                <img
-                  key={image.id}
-                  src={image.url}
-                  alt={listing.title}
-                  className="h-24 w-full rounded-2xl object-cover"
-                  loading="lazy"
-                />
+
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/buscar" className="font-semibold hover:text-zinc-800">
+            Voltar
+          </Link>
+          <span>/</span>
+          <Link href="/categorias" className="hover:text-zinc-800">
+            Categorias
+          </Link>
+          {listing.family ? (
+            <>
+              <span>/</span>
+              <Link href={`/marca/${listing.family}`} className="hover:text-zinc-800">
+                {familyLabelBySlug[listing.family] ?? listing.family}
+              </Link>
+            </>
+          ) : null}
+        </div>
+        <FavoriteButton listingId={listing.id} initialIsFavorite={initialIsFavorite} compact />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="min-w-0 space-y-6">
+          <ProductGallery
+            title={listing.title}
+            images={imageUrls}
+            fallbackUrl={listing.thumbnail_url}
+          />
+
+          {relatedListings.length > 0 ? (
+            <section className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-zinc-900">
+                  Produtos relacionados
+                </h2>
+                <span className="text-xs text-zinc-500">Sugestoes</span>
+              </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 md:hidden">
+                {relatedListings.slice(0, 4).map((item) => (
+                  <ProductCard
+                    key={item.id}
+                    href={buildListingPath(item.id, item.title)}
+                    title={item.title}
+                    priceCents={item.price_cents}
+                    thumbnailUrl={item.thumbnail_url}
+                    badge={item.listing_type === "auction" ? "Lance" : undefined}
+                    platformLabel={
+                      item.platform ||
+                      familyLabelBySlug[item.family ?? ""] ||
+                      "Plataforma"
+                    }
+                    conditionLabel={formatConditionLabel(item.condition)}
+                    shippingLabel={formatShippingLabel(
+                      item.shipping_available,
+                      item.free_shipping
+                    )}
+                  />
+                ))}
+              </div>
+              <div className="mt-4 hidden min-w-0 md:block">
+                <ProductCarousel>
+                  {relatedListings.map((item) => (
+                    <div key={item.id} className="ml-rail-item">
+                      <ProductCard
+                        href={buildListingPath(item.id, item.title)}
+                        title={item.title}
+                        priceCents={item.price_cents}
+                        thumbnailUrl={item.thumbnail_url}
+                        badge={item.listing_type === "auction" ? "Lance" : undefined}
+                        platformLabel={
+                          item.platform ||
+                          familyLabelBySlug[item.family ?? ""] ||
+                          "Plataforma"
+                        }
+                        conditionLabel={formatConditionLabel(item.condition)}
+                        shippingLabel={formatShippingLabel(
+                          item.shipping_available,
+                          item.free_shipping
+                        )}
+                      />
+                    </div>
+                  ))}
+                </ProductCarousel>
+              </div>
+            </section>
+          ) : null}
+
+          <section className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-zinc-900">
+              Caracteristicas do produto
+            </h2>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              {[
+                { label: "Estado", value: formatCondition(listing.condition) },
+                {
+                  label: "Envio",
+                  value: formatShipping(listing.shipping_available, listing.free_shipping),
+                },
+                {
+                  label: "Quantidade",
+                  value: String(listing.quantity_available ?? 1),
+                },
+                {
+                  label: "Plataforma",
+                  value:
+                    familyLabelBySlug[listing.family ?? ""] ??
+                    listing.platform ??
+                    "Nao informado",
+                },
+              ].map((info) => (
+                <div
+                  key={info.label}
+                  className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                    {info.label}
+                  </p>
+                  <p className="mt-2 text-base font-semibold text-zinc-900">
+                    {info.value}
+                  </p>
+                </div>
               ))}
             </div>
-          ) : null}
-          <div className="mt-6 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
-              Detalhes do produto
+          </section>
+
+          <section className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-zinc-900">Descricao</h2>
+            <p className="mt-3 break-words whitespace-pre-line text-sm text-zinc-600">
+              {listing.description || "Sem descricao informada."}
             </p>
-            <p className="text-sm text-zinc-600">
-              {listing.description || "Informacoes completas do anuncio."}
-            </p>
-          </div>
+          </section>
         </div>
 
-        <div className="space-y-4 rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
-              {familyLabelBySlug[listing.family ?? ""] ?? listing.family ?? "Plataforma"}
-            </p>
-            <h1 className="text-2xl font-semibold text-zinc-900">
-              {listing.title}
-            </h1>
-            <p className="text-sm text-zinc-600">
-              {formatCondition(listing.condition)} -{" "}
-              {formatShipping(listing.shipping_available, listing.free_shipping)}
-            </p>
-          </div>
-          <div className="text-3xl font-semibold text-zinc-900">
-            {formatCentsToBRL(listing.price_cents ?? 0)}
-          </div>
-          <ShippingQuote
-            listingId={listing.id}
-            listingPriceCents={listing.price_cents ?? 0}
-            shippingAvailable={listing.shipping_available !== false}
-            freeShipping={Boolean(listing.free_shipping)}
-          />
-          <div className="space-y-2 text-sm text-zinc-600">
-            <p>Pagamento seguro e envio monitorado.</p>
-            <p>Vendedor verificado e historico positivo.</p>
-            {availableQuantity <= 0 ? (
-              <p className="text-xs text-rose-600">Sem estoque.</p>
-            ) : null}
-            {listing.status && listing.status !== "active" ? (
-              <p className="text-xs text-amber-600">
-                Status atual: {listing.status}.
-              </p>
-            ) : null}
-          </div>
-          {isAuction ? (
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+        <aside className="min-w-0 space-y-4 lg:sticky lg:top-24">
+          <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
-                  Painel de lances
+                  {familyLabelBySlug[listing.family ?? ""] ?? listing.family ?? "Plataforma"}
                 </p>
-                <div className="mt-3 space-y-2">
-                  <p>
-                    Lance atual:{" "}
-                    <span className="font-semibold text-zinc-900">
-                      {formatCentsToBRL(currentBidCents)}
-                    </span>
-                  </p>
-                  {!isAuctionClosed ? (
-                    <p>
-                      Lance minimo:{" "}
-                      <span className="font-semibold text-zinc-900">
-                        {formatCentsToBRL(minBidCents)}
-                      </span>
-                    </p>
-                  ) : null}
-                  <p>
-                    Encerra em:{" "}
-                    <span className="font-semibold text-zinc-900">
-                      {auctionEndsAt
-                        ? auctionEndsAt.toLocaleString("pt-BR")
-                        : "Sem data definida"}
-                    </span>
-                  </p>
-                  {isAuctionClosed ? (
-                    <p className="text-xs text-zinc-500">
-                      Lances encerrados. O maior lance valido venceu.
-                    </p>
-                  ) : null}
-                  <p className="text-xs text-zinc-500">
-                    O vendedor pode encerrar os lances a qualquer momento ou no
-                    prazo estipulado.
-                  </p>
-                </div>
+                <h1 className="break-words text-2xl font-semibold text-zinc-900">
+                  {listing.title}
+                </h1>
+                <p className="break-words text-sm text-zinc-600">
+                  {formatCondition(listing.condition)} -{" "}
+                  {formatShipping(listing.shipping_available, listing.free_shipping)}
+                </p>
               </div>
-              {!isAuctionClosed ? (
-                <form action={placeBid} className="space-y-3">
-                  <input type="hidden" name="listing_id" value={listing.id} />
-                  <label className="flex flex-col gap-2 text-sm text-zinc-700">
-                    Seu lance maximo
-                    <input
-                      className="rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
-                      name="bid_amount"
-                      placeholder={`Minimo ${formatCentsToBRL(minBidCents)}`}
-                      required
-                    />
-                  </label>
-                  <p className="text-xs text-zinc-500">
-                    Informe o teto. O sistema cobre automaticamente ate esse valor.
-                  </p>
-                  <button
-                    type="submit"
-                    disabled={!canBid}
-                    className="w-full rounded-full bg-zinc-900 px-6 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-400"
-                  >
-                    Dar lance
-                  </button>
-                </form>
+              <FavoriteButton listingId={listing.id} initialIsFavorite={initialIsFavorite} />
+            </div>
+
+            <div className="mt-4 text-3xl font-semibold text-zinc-900">
+              {formatCentsToBRL(listing.price_cents ?? 0)}
+            </div>
+
+            <div className="mt-4">
+              <ShippingQuote
+                listingId={listing.id}
+                listingPriceCents={listing.price_cents ?? 0}
+                shippingAvailable={listing.shipping_available !== false}
+                freeShipping={Boolean(listing.free_shipping)}
+              />
+            </div>
+
+            <div className="mt-4">
+              <ShareProductButton title={listing.title} url={productUrl} />
+            </div>
+
+            <div className="mt-4 space-y-2 text-sm text-zinc-600">
+              {availableQuantity <= 0 ? (
+                <p className="text-xs text-rose-600">Sem estoque.</p>
               ) : null}
-              {isAuctionClosed && isWinner && winnerOrderId ? (
-                <div className="space-y-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-                  <p className="font-semibold">Voce venceu este lance.</p>
-                  <p>
-                    Finalize o pagamento em ate {AUCTION_PAYMENT_WINDOW_DAYS} dias.
-                  </p>
-                  <Link
-                    href={`/checkout/lances?order_id=${winnerOrderId}`}
-                    className="inline-flex rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold text-white"
-                  >
-                    Pagar agora
-                  </Link>
-                </div>
-              ) : null}
-              {!user ? (
-                <Link
-                  href={`/entrar?redirect_to=${encodeURIComponent(
-                    `/produto/${listing.id}`
-                  )}`}
-                  className="inline-flex rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700"
-                >
-                  Entrar para dar lance
-                </Link>
-              ) : null}
-              {isSellerUser ? (
-                <p className="text-xs text-zinc-500">
-                  Voce e o vendedor deste lance.
+              {listing.status && listing.status !== "active" ? (
+                <p className="text-xs text-amber-600">
+                  Status atual: {listing.status}.
                 </p>
               ) : null}
             </div>
-          ) : (
-            <PurchaseActions listingId={listing.id} disabled={!isAvailable} />
-          )}
-          <Link href="/buscar" className="text-sm font-semibold text-zinc-600">
-            Ver produtos similares
-          </Link>
-          <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+
+            <div className="mt-5">
+              {isAuction ? (
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                      Painel de lances
+                    </p>
+                    <div className="mt-3 space-y-2">
+                      <p>
+                        Lance atual:{" "}
+                        <span className="font-semibold text-zinc-900">
+                          {formatCentsToBRL(currentBidCents)}
+                        </span>
+                      </p>
+                      {!isAuctionClosed ? (
+                        <p>
+                          Lance minimo:{" "}
+                          <span className="font-semibold text-zinc-900">
+                            {formatCentsToBRL(minBidCents)}
+                          </span>
+                        </p>
+                      ) : null}
+                      <p>
+                        Encerra em:{" "}
+                        <span className="font-semibold text-zinc-900">
+                          {auctionEndsAt
+                            ? auctionEndsAt.toLocaleString("pt-BR")
+                            : "Sem data definida"}
+                        </span>
+                      </p>
+                      {isAuctionClosed ? (
+                        <p className="text-xs text-zinc-500">
+                          Lances encerrados. O maior lance valido venceu.
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                  {!isAuctionClosed ? (
+                    <form action={placeBid} className="space-y-3">
+                      <input type="hidden" name="listing_id" value={listing.id} />
+                      <label className="flex flex-col gap-2 text-sm text-zinc-700">
+                        Seu lance maximo
+                        <input
+                          className="rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
+                          name="bid_amount"
+                          placeholder={`Minimo ${formatCentsToBRL(minBidCents)}`}
+                          required
+                        />
+                      </label>
+                      <button
+                        type="submit"
+                        disabled={!canBid}
+                        className="w-full rounded-full bg-zinc-900 px-6 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-400"
+                      >
+                        Dar lance
+                      </button>
+                      <p className="text-xs text-zinc-500">
+                        Informe o teto. O sistema cobre automaticamente ate esse valor.
+                      </p>
+                    </form>
+                  ) : null}
+                  {isAuctionClosed && isWinner && winnerOrderId ? (
+                    <div className="space-y-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                      <p className="font-semibold">Voce venceu este lance.</p>
+                      <p>
+                        Finalize o pagamento em ate {AUCTION_PAYMENT_WINDOW_DAYS} dias.
+                      </p>
+                      <Link
+                        href={`/checkout/lances?order_id=${winnerOrderId}`}
+                        className="inline-flex rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold text-white"
+                      >
+                        Pagar agora
+                      </Link>
+                    </div>
+                  ) : null}
+                  {!user ? (
+                    <Link
+                      href={`/entrar?redirect_to=${encodeURIComponent(productPath)}`}
+                      className="inline-flex rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700"
+                    >
+                      Entrar para dar lance
+                    </Link>
+                  ) : null}
+                </div>
+              ) : (
+                <PurchaseActions
+                  listingId={listing.id}
+                  disabled={!isAvailable}
+                  layout="stack"
+                  metaProduct={{
+                    catalogId: buildMetaCatalogListingId(listing.id),
+                    title: listing.title,
+                    priceCents: listing.price_cents,
+                    category:
+                      familyLabelBySlug[listing.family ?? ""] ??
+                      listing.platform ??
+                      listing.family ??
+                      "Marketplace",
+                    brand: listing.platform ?? listing.family ?? "GANM OLS",
+                  }}
+                />
+              )}
+            </div>
+
+            <Link href="/buscar" className="mt-4 inline-flex text-sm font-semibold text-zinc-600 hover:text-zinc-900">
+              Ver produtos similares
+            </Link>
+          </div>
+
+          <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
-              Vendedor
+              Vendido por
             </p>
             <p className="mt-2 text-base font-semibold text-zinc-900">
               {sellerName}
             </p>
             <p className="text-xs text-zinc-500">{sellerLocation}</p>
+
             <div className="mt-3 flex items-center gap-2 text-xs text-zinc-500">
               <StarRatingDisplay rating={averageRating} size={14} />
               <span className="rounded-full border border-zinc-200 px-2 py-1">
-                {reviewCount > 0
-                  ? `${averageRating.toFixed(1)}/5`
-                  : "Sem avaliacoes"}
+                {reviewCount > 0 ? `${averageRating.toFixed(1)}/5` : "Sem avaliacoes"}
+              </span>
+              <span className="rounded-full border border-zinc-200 px-2 py-1">
+                {viewCount} visualizacao{viewCount === 1 ? "" : "es"}
               </span>
               <span>
                 {reviewCount} avaliacao{reviewCount === 1 ? "" : "s"}
               </span>
             </div>
+
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <FollowSellerButton sellerUserId={listing.seller_user_id} initialCount={followerCount} />
+              <Link
+                href={`/lojas/${listing.seller_user_id}`}
+                className="rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-800 hover:border-zinc-300 hover:bg-zinc-50"
+              >
+                Ver loja
+              </Link>
+            </div>
           </div>
-        </div>
+        </aside>
       </div>
 
       {isAuction ? (
@@ -992,33 +1421,6 @@ export default async function Page({ params, searchParams }: PageProps) {
           )}
         </section>
       ) : null}
-
-      <div className="grid gap-4 md:grid-cols-3">
-        {[
-          { label: "Origem", value: "Colecao particular" },
-          { label: "Estado", value: formatCondition(listing.condition) },
-          {
-            label: "Envio",
-            value: formatShipping(listing.shipping_available, listing.free_shipping),
-          },
-          {
-            label: "Quantidade",
-            value: String(listing.quantity_available ?? 1),
-          },
-        ].map((info) => (
-          <div
-            key={info.label}
-            className="rounded-3xl border border-zinc-200 bg-white p-5 text-sm text-zinc-600 shadow-sm"
-          >
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
-              {info.label}
-            </p>
-            <p className="mt-2 text-base font-semibold text-zinc-900">
-              {info.value}
-            </p>
-          </div>
-        ))}
-      </div>
 
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1078,9 +1480,7 @@ export default async function Page({ params, searchParams }: PageProps) {
           )
         ) : (
           <Link
-            href={`/entrar?redirect_to=${encodeURIComponent(
-              `/produto/${listing.id}`
-            )}`}
+            href={`/entrar?redirect_to=${encodeURIComponent(productPath)}`}
             className="rounded-3xl border border-dashed border-zinc-200 bg-zinc-50 p-5 text-sm text-zinc-500"
           >
             Entre para avaliar este produto.
@@ -1160,9 +1560,7 @@ export default async function Page({ params, searchParams }: PageProps) {
           </form>
         ) : (
           <Link
-            href={`/entrar?redirect_to=${encodeURIComponent(
-              `/produto/${listing.id}`
-            )}`}
+            href={`/entrar?redirect_to=${encodeURIComponent(productPath)}`}
             className="rounded-3xl border border-dashed border-zinc-200 bg-zinc-50 p-5 text-sm text-zinc-500"
           >
             Entre para enviar uma pergunta ao vendedor.

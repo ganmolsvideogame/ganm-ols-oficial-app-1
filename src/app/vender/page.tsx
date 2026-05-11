@@ -2,12 +2,12 @@ import { randomUUID } from "crypto";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { FAMILIES } from "@/lib/mock/data";
 import { createClient } from "@/lib/supabase/server";
+import AutoRefreshPayments from "@/components/orders/AutoRefreshPayments";
 import AutoRefreshSuperfrete from "@/components/orders/AutoRefreshSuperfrete";
+import SellerBroadcastChannelCard from "@/components/seller/SellerBroadcastChannelCard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatCentsToBRL, parsePriceToCents } from "@/lib/utils/price";
-import ImageUploadField from "@/components/listings/ImageUploadField";
 import {
   AUCTION_DURATION_OPTIONS,
   AUCTION_PAYMENT_WINDOW_DAYS,
@@ -20,6 +20,8 @@ import {
   MIN_LISTING_PRICE_CENTS,
 } from "@/lib/config/commerce";
 import { resolvePackageDimensions } from "@/lib/shipping/presets";
+import { buildSuperfretePrintUrl } from "@/lib/superfrete/print-url";
+import { insertNotificationsWithPush } from "@/lib/push/delivery";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +63,7 @@ type OrderRow = {
   shipping_service_name?: string | null;
   status: string | null;
   mp_payment_id?: string | null;
+  mp_preference_id?: string | null;
   created_at: string | null;
   approved_at: string | null;
   available_at: string | null;
@@ -72,6 +75,7 @@ type OrderRow = {
   superfrete_id?: string | null;
   superfrete_print_url?: string | null;
   superfrete_status?: string | null;
+  superfrete_last_error?: string | null;
   cancel_status?: string | null;
   cancel_requested_by?: string | null;
   cancel_requested_at?: string | null;
@@ -155,6 +159,29 @@ function computeNetCents(order: OrderRow) {
       : 0;
   const net = baseNet - shippingCharge;
   return Math.max(0, net);
+}
+
+function formatSuperfreteError(message?: string | null) {
+  if (!message) {
+    return null;
+  }
+  if (
+    message.includes("Sem saldo na carteira") ||
+    message.toLowerCase().includes("saldo")
+  ) {
+    return "Etiqueta pendente: sem saldo na carteira SuperFrete.";
+  }
+  if (message.length > 180) {
+    return `${message.slice(0, 180)}...`;
+  }
+  return message;
+}
+
+function resolveSuperfretePrintUrl(order: {
+  superfrete_id?: string | null;
+  superfrete_print_url?: string | null;
+}) {
+  return buildSuperfretePrintUrl(order.superfrete_id) || order.superfrete_print_url || null;
 }
 
 async function upgradeToSeller() {
@@ -408,13 +435,97 @@ async function deleteListing(formData: FormData) {
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("listings").delete().eq("id", listingId);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (error) {
-    redirect(`/vender?error=${encodeURIComponent(error.message)}`);
+  if (!user) {
+    redirect("/entrar");
   }
 
-  redirect("/vender?success=Anuncio+removido");
+  const admin = createAdminClient();
+  const { data: listing } = await admin
+    .from("listings")
+    .select("id, seller_user_id")
+    .eq("id", listingId)
+    .maybeSingle();
+
+  if (!listing) {
+    redirect("/vender?error=Anuncio+nao+encontrado");
+  }
+
+  if (listing.seller_user_id !== user.id) {
+    redirect("/vender?error=Sem+permissao+para+este+anuncio");
+  }
+
+  // We avoid hard-deleting listings because they can be referenced by orders.
+  // Archiving keeps order history intact and prevents FK constraint errors.
+  const archivePayload: Record<string, unknown> = {
+    status: "removed",
+    is_featured: false,
+    is_week_offer: false,
+  };
+
+  let { error } = await admin
+    .from("listings")
+    .update(archivePayload)
+    .eq("id", listingId);
+  if (error) {
+    const message = error.message || "Erro ao arquivar anuncio";
+    const lower = message.toLowerCase();
+
+    // Some databases may restrict listing status values; fall back to a safe pause.
+    const shouldFallback =
+      lower.includes("enum") ||
+      lower.includes("check constraint") ||
+      lower.includes("invalid input value");
+    const missingColumn =
+      lower.includes("does not exist") || lower.includes("column") || lower.includes("missing");
+
+    if (shouldFallback) {
+      const { error: fallbackError } = await admin
+        .from("listings")
+        .update({ ...archivePayload, status: "paused" })
+        .eq("id", listingId);
+      if (fallbackError) {
+        const fallbackMessage = fallbackError.message || "Erro ao arquivar anuncio";
+        // If the database is missing columns (legacy schema), retry with only status.
+        if (
+          fallbackMessage.toLowerCase().includes("does not exist") ||
+          fallbackMessage.toLowerCase().includes("column")
+        ) {
+          const { error: minimalError } = await admin
+            .from("listings")
+            .update({ status: "paused" })
+            .eq("id", listingId);
+          if (minimalError) {
+            redirect(`/vender?error=${encodeURIComponent(minimalError.message)}`);
+          }
+        } else {
+          redirect(`/vender?error=${encodeURIComponent(fallbackMessage)}`);
+        }
+      }
+    } else if (missingColumn) {
+      // Legacy schema: retry with only status.
+      ({ error } = await admin
+        .from("listings")
+        .update({ status: "removed" })
+        .eq("id", listingId));
+      if (error) {
+        ({ error } = await admin
+          .from("listings")
+          .update({ status: "paused" })
+          .eq("id", listingId));
+      }
+      if (error) {
+        redirect(`/vender?error=${encodeURIComponent(error.message)}`);
+      }
+    } else {
+      redirect(`/vender?error=${encodeURIComponent(message)}`);
+    }
+  }
+
+  redirect("/vender?success=Anuncio+arquivado");
 }
 
 async function endAuction(formData: FormData) {
@@ -545,7 +656,7 @@ async function cancelUnpaidOrder(formData: FormData) {
       reason: cancelReason,
     });
 
-    await admin.from("notifications").insert([
+    await insertNotificationsWithPush(admin, [
       {
         user_id: order.buyer_user_id,
         title: "Pedido cancelado por nao pagamento",
@@ -565,7 +676,7 @@ async function cancelUnpaidOrder(formData: FormData) {
       .map((row) => row.user_id)
       .filter((id): id is string => Boolean(id));
     if (adminIds.length > 0) {
-      await admin.from("notifications").insert(
+      await insertNotificationsWithPush(admin, 
         adminIds.map((adminId) => ({
           user_id: adminId,
           title: "Pedido cancelado por nao pagamento",
@@ -615,18 +726,12 @@ export default async function Page({ searchParams }: PageProps) {
     .eq("id", user.id)
     .maybeSingle();
 
-  const { data: mpAccount } = await createAdminClient()
-    .from("seller_payment_accounts")
-    .select("mp_user_id, token_expires_at, updated_at")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
   const displayName =
     profile?.display_name?.trim() || user.email?.split("@")[0] || "Usuario";
   const isSeller = profile?.role === "seller";
   const debug = resolvedSearchParams?.debug === "1";
   const payoutMethod = profile?.payout_method ?? "";
-  const mpConnected = Boolean(mpAccount?.mp_user_id);
+  const now = new Date();
   const payoutLabel =
     payoutMethod === "pix"
       ? `Pix (${profile?.payout_pix_key || "Chave nao informada"})`
@@ -634,7 +739,7 @@ export default async function Page({ searchParams }: PageProps) {
         ? `Banco ${profile?.payout_bank_name || "Nao informado"}`
       : "Nao configurado";
   const defaultAuctionEnd = formatDateTimeLocal(
-    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
   );
 
   const { data: listingsData } = isSeller
@@ -651,7 +756,7 @@ export default async function Page({ searchParams }: PageProps) {
     ? await createAdminClient()
         .from("orders")
         .select(
-          "id, listing_id, buyer_user_id, amount_cents, fee_cents, shipping_cost_cents, shipping_paid_by, shipping_service_name, status, mp_payment_id, created_at, approved_at, delivered_at, available_at, buyer_approval_deadline_at, payment_deadline_at, payout_status, payout_requested_at, superfrete_id, superfrete_status, superfrete_print_url, cancel_status, cancel_requested_by, cancel_requested_at, cancel_deadline_at, cancel_reason, listings(title, thumbnail_url, listing_type)"
+          "id, listing_id, buyer_user_id, amount_cents, fee_cents, shipping_cost_cents, shipping_paid_by, shipping_service_name, status, mp_payment_id, mp_preference_id, created_at, approved_at, delivered_at, available_at, buyer_approval_deadline_at, payment_deadline_at, payout_status, payout_requested_at, superfrete_id, superfrete_status, superfrete_print_url, superfrete_last_error, cancel_status, cancel_requested_by, cancel_requested_at, cancel_deadline_at, cancel_reason, listings(title, thumbnail_url, listing_type)"
         )
         .eq("seller_user_id", user.id)
         .order("created_at", { ascending: false })
@@ -659,7 +764,27 @@ export default async function Page({ searchParams }: PageProps) {
 
   const listings = (listingsData ?? []) as ListingRow[];
   const orders = (ordersData ?? []) as OrderRow[];
-  const now = new Date();
+  const listingIds = listings.map((listing) => listing.id);
+  const { data: listingViewsData } =
+    isSeller && listingIds.length > 0
+      ? await createAdminClient()
+          .from("analytics_events")
+          .select("listing_id")
+          .eq("event_type", "listing_view")
+          .in("listing_id", listingIds)
+      : { data: [] as { listing_id: string | null }[] };
+  const listingViewCounts = new Map<string, number>();
+  ((listingViewsData ?? []) as { listing_id: string | null }[]).forEach((row) => {
+    const listingId = String(row.listing_id ?? "").trim();
+    if (!listingId) {
+      return;
+    }
+    listingViewCounts.set(listingId, (listingViewCounts.get(listingId) ?? 0) + 1);
+  });
+  const totalListingViews = Array.from(listingViewCounts.values()).reduce(
+    (sum, count) => sum + count,
+    0
+  );
   const payoutRequested = new Set(["requested", "paid"]);
   const enrichedOrders = orders.map((order) => {
     const availableAt = resolveAvailableAt(order);
@@ -718,7 +843,15 @@ export default async function Page({ searchParams }: PageProps) {
     .filter(
       (order) =>
         order.superfrete_id &&
-        (!order.superfrete_print_url || order.superfrete_status !== "released")
+        (!resolveSuperfretePrintUrl(order) || order.superfrete_status !== "released")
+    )
+    .map((order) => order.id);
+  const pendingPaymentOrderIds = enrichedOrders
+    .filter(
+      (order) =>
+        order.status === "pending" &&
+        !order.mp_payment_id &&
+        Boolean(order.mp_preference_id)
     )
     .map((order) => order.id);
 
@@ -776,6 +909,12 @@ export default async function Page({ searchParams }: PageProps) {
             Painel
           </Link>
           <Link
+            href="/vender/vendas"
+            className="rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700"
+          >
+            Vendas
+          </Link>
+          <Link
             href="/vender/planos"
             className="rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700"
           >
@@ -813,6 +952,15 @@ export default async function Page({ searchParams }: PageProps) {
         </div>
       ) : null}
 
+      <SellerBroadcastChannelCard
+        compact
+        description={
+          isSeller
+            ? "Acompanhe avisos, oportunidades e novidades do ecossistema de vendedores sem depender so de email."
+            : "Entre no canal para receber avisos e oportunidades voltadas para quem quer vender na GANM OLS."
+        }
+      />
+
       {!isSeller ? (
         <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-zinc-900">
@@ -832,10 +980,12 @@ export default async function Page({ searchParams }: PageProps) {
         </div>
       ) : (
         <>
+          <AutoRefreshPayments orderIds={pendingPaymentOrderIds} />
           <AutoRefreshSuperfrete orderIds={pendingSuperfreteIds} />
           <section className="grid gap-4 md:grid-cols-4">
             {[
               { label: "Anuncios ativos", value: listings.length },
+              { label: "Visualizacoes", value: totalListingViews },
               { label: "Vendas aprovadas", value: totalOrders },
               { label: "Vendas pendentes", value: pendingOrders.length },
               { label: "Saldo disponivel", value: formatCentsToBRL(availableBalance) },
@@ -879,233 +1029,29 @@ export default async function Page({ searchParams }: PageProps) {
             ))}
           </section>
 
-          <section className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-zinc-900">
-                  Criar anuncio
+          <section className="rounded-[2rem] border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+              <div className="max-w-2xl">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                  Criacao de anuncio
+                </p>
+                <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-zinc-950">
+                  Publique em etapas e monte um anuncio mais claro para vender.
                 </h2>
-                <p className="mt-1 text-sm text-zinc-600">
-                  Preencha os detalhes para publicar seu produto.
+                <p className="mt-3 text-sm leading-7 text-zinc-600">
+                  A nova jornada separa categoria, plataforma, titulo e
+                  publicacao final em telas proprias para deixar o processo mais
+                  limpo no celular e no desktop.
                 </p>
               </div>
-              <span className="rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-500">
-                Repasse em {BUYER_APPROVAL_DAYS} dias apos entrega
-              </span>
-            </div>
-            <form
-              action={createListing}
-              className="mt-6 space-y-4"
-            >
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-zinc-700">
-                    Nome real do vendedor
-                  </label>
-                  <input
-                    className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
-                    name="seller_name"
-                    placeholder="Ex: Joao Silva"
-                    defaultValue={profile?.display_name ?? ""}
-                    required
-                  />
-                  <p className="text-xs text-zinc-500">
-                    Este nome aparece para o comprador e no cadastro do vendedor.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-zinc-700">
-                    Titulo
-                  </label>
-                  <input
-                    className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
-                    name="title"
-                    placeholder="Ex: Super Nintendo completo"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-zinc-700">
-                    Preco
-                  </label>
-                  <input
-                    className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
-                    name="price"
-                    placeholder="Ex: R$ 980,00"
-                    required
-                  />
-                  <p className="text-xs text-zinc-500">
-                    Preco minimo: {formatCentsToBRL(MIN_LISTING_PRICE_CENTS)}.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-zinc-700">
-                    Quantidade disponivel
-                  </label>
-                  <input
-                    className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
-                    name="quantity_available"
-                    type="number"
-                    min={1}
-                    defaultValue={1}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-zinc-700">
-                    Condicao
-                  </label>
-                  <select
-                    className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm text-zinc-700"
-                    name="condition"
-                  >
-                    {[
-                      "Novo",
-                      "Usado",
-                      "Revisado",
-                      "Colecionavel",
-                    ].map((option) => (
-                      <option key={option} value={option.toLowerCase()}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-zinc-700">
-                    Plataforma
-                  </label>
-                  <select
-                    className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm text-zinc-700"
-                    name="family"
-                    required
-                  >
-                    <option value="">Selecione</option>
-                    {FAMILIES.map((family) => (
-                      <option key={family.slug} value={family.slug}>
-                        {family.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-zinc-700">
-                    Plataforma
-                  </label>
-                  <input
-                    className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
-                    name="platform"
-                    placeholder="Ex: PlayStation 2"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-zinc-700">
-                    Modelo
-                  </label>
-                  <input
-                    className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
-                    name="model"
-                    placeholder="Edicao especial, bundle, etc"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-zinc-700">
-                    Tipo de venda
-                  </label>
-                  <select
-                    className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm text-zinc-700"
-                    name="listing_type"
-                    defaultValue="now"
-                  >
-                    <option value="now">Venda imediata</option>
-                    <option value="auction">Lance programado</option>
-                  </select>
-                  <p className="text-xs text-zinc-500">
-                    Use Lances para receber ofertas acima do preco base.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-zinc-700">
-                    Incremento de lance (%)
-                  </label>
-                  <input
-                    className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
-                    name="auction_increment_percent"
-                    defaultValue={DEFAULT_AUCTION_INCREMENT_PERCENT}
-                    placeholder="Ex: 25"
-                  />
-                  <p className="text-xs text-zinc-500">
-                    Aplicado no primeiro lance e nos proximos.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-zinc-700">
-                    Duracao dos lances (dias)
-                  </label>
-                  <select
-                    className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm text-zinc-700"
-                    name="auction_duration_days"
-                    defaultValue={7}
-                  >
-                    {AUCTION_DURATION_OPTIONS.map((days) => (
-                      <option key={days} value={days}>
-                        {days} {days === 1 ? "dia" : "dias"}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-zinc-500">
-                    Encerramento rigido no prazo definido.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-zinc-700">
-                    Encerramento dos lances
-                  </label>
-                  <input
-                    className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
-                    type="datetime-local"
-                    name="auction_end_at"
-                    defaultValue={defaultAuctionEnd}
-                  />
-                  <p className="text-xs text-zinc-500">
-                    Se vazio, o sistema usa a duracao selecionada acima.
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <label className="flex items-center gap-3 text-sm text-zinc-700">
-                    <input
-                      type="checkbox"
-                      name="free_shipping"
-                      className="h-4 w-4 rounded border-zinc-300"
-                    />
-                    Oferecer frete gratis
-                  </label>
-                  <p className="text-xs text-zinc-500">
-                    Se voce marcar frete gratis, o custo do envio sera
-                    descontado da sua venda.
-                  </p>
-                </div>
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-zinc-700">
-                  Descricao
-                </label>
-                <textarea
-                  className="min-h-[140px] w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
-                  name="description"
-                  placeholder="Descreva detalhes, itens inclusos e estado."
-                />
-              </div>
-
-              <ImageUploadField name="images" />
-
-              <button
-                type="submit"
-                className="rounded-full bg-zinc-900 px-6 py-3 text-sm font-semibold text-white"
+              <Link
+                href="/vender/anunciar"
+                className="inline-flex min-w-[220px] items-center justify-center rounded-full bg-zinc-950 px-6 py-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
               >
-                Publicar anuncio
-              </button>
-            </form>
+                Criar anuncio
+              </Link>
+            </div>
           </section>
 
           <section className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
@@ -1121,39 +1067,6 @@ export default async function Page({ searchParams }: PageProps) {
               <span className="rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-500">
                 Metodo: {payoutLabel}
               </span>
-            </div>
-            <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
-                  Mercado Pago
-                </p>
-                <p className="mt-2 text-sm">
-                  {mpConnected
-                    ? "Conectado e pronto para repasses automaticos."
-                    : "Conecte para receber pagamentos automaticamente."}
-                </p>
-                <p className="mt-1 text-xs text-zinc-500">
-                  O prazo de liberacao segue as regras do Mercado Pago.
-                </p>
-              </div>
-              <div className="ml-auto flex flex-wrap items-center gap-2">
-                {!mpConnected ? (
-                  <a
-                    href="https://mpago.li/2GnavTh"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700"
-                  >
-                    Criar conta Mercado Pago
-                  </a>
-                ) : null}
-                <Link
-                  href="/api/mercadopago/connect"
-                  className="rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700"
-                >
-                  {mpConnected ? "Reconectar" : "Conectar para receber pagamentos"}
-                </Link>
-              </div>
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
@@ -1259,6 +1172,10 @@ export default async function Page({ searchParams }: PageProps) {
                             )}`
                           : "Venda imediata"}
                       </p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        {listingViewCounts.get(String(listing.id)) ?? 0} visualizacao
+                        {(listingViewCounts.get(String(listing.id)) ?? 0) === 1 ? "" : "es"}
+                      </p>
                       <Link
                         href={`/anuncio/${listing.id}`}
                         className="mt-3 inline-flex rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700"
@@ -1288,7 +1205,7 @@ export default async function Page({ searchParams }: PageProps) {
                           type="submit"
                           className="rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700"
                         >
-                          Remover
+                          Arquivar
                         </button>
                       </form>
                       {listing.listing_type === "auction" &&
@@ -1440,9 +1357,10 @@ export default async function Page({ searchParams }: PageProps) {
                       order.status !== "canceled" &&
                       order.cancel_status !== "requested" &&
                       order.cancel_status !== "approved" &&
-                      order.superfrete_print_url ? (
+                      resolveSuperfretePrintUrl(order) &&
+                      order.superfrete_status === "released" ? (
                         <a
-                          href={order.superfrete_print_url}
+                          href={resolveSuperfretePrintUrl(order) ?? "#"}
                           target="_blank"
                           rel="noreferrer"
                           className="rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700"
@@ -1482,9 +1400,14 @@ export default async function Page({ searchParams }: PageProps) {
                         </>
                       )}
                       {order.superfrete_status === "released" &&
-                      !order.superfrete_print_url ? (
+                      !resolveSuperfretePrintUrl(order) ? (
                         <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs text-emerald-700">
                           Etiqueta liberada
+                        </span>
+                      ) : null}
+                      {order.superfrete_last_error ? (
+                        <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs text-rose-700">
+                          {formatSuperfreteError(order.superfrete_last_error)}
                         </span>
                       ) : null}
                       {order.cancel_status === "requested" ? (

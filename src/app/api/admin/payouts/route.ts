@@ -18,13 +18,22 @@ function buildRedirect(
   return NextResponse.redirect(url, { status: 303 });
 }
 
+function resolveAdminRedirectPath(formData: FormData, fallback: string) {
+  const raw = String(formData.get("redirect_to") ?? "").trim();
+  if (raw.startsWith(ADMIN_PATHS.base)) {
+    return raw;
+  }
+  return fallback;
+}
+
 export async function POST(request: Request) {
   const formData = await request.formData();
   const requestId = String(formData.get("request_id") ?? "").trim();
   const action = String(formData.get("action") ?? "").trim();
+  const redirectPath = resolveAdminRedirectPath(formData, ADMIN_PATHS.dashboard);
 
   if (!requestId || !action) {
-    return buildRedirect(request, ADMIN_PATHS.dashboard, {
+    return buildRedirect(request, redirectPath, {
       error: "Acao invalida",
     });
   }
@@ -55,7 +64,7 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (error || !payoutRequest) {
-    return buildRedirect(request, ADMIN_PATHS.dashboard, {
+    return buildRedirect(request, redirectPath, {
       error: "Solicitacao nao encontrada",
     });
   }
@@ -88,12 +97,12 @@ export async function POST(request: Request) {
         .in("id", orderIds);
     }
   } else {
-    return buildRedirect(request, ADMIN_PATHS.dashboard, {
+    return buildRedirect(request, redirectPath, {
       error: "Acao desconhecida",
     });
   }
 
-  return buildRedirect(request, ADMIN_PATHS.dashboard, {
+  return buildRedirect(request, redirectPath, {
     success: "Solicitacao atualizada",
   });
 }

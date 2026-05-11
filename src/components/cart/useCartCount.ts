@@ -11,10 +11,9 @@ import {
 
 export default function useCartCount() {
   const supabase = useMemo(() => createClient(), []);
-  const [count, setCount] = useState(0);
+  const [count, setCount] = useState(() => readStoredCartCount());
 
   useEffect(() => {
-    setCount(readStoredCartCount());
     const unsubscribe = subscribeCartCount((next) => {
       setCount(next);
     });
@@ -50,7 +49,7 @@ export default function useCartCount() {
       notifyCartCount(nextCount);
     };
 
-    loadCount();
+    void loadCount();
 
     return () => {
       unsubscribe();

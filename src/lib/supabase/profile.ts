@@ -5,6 +5,7 @@ export type ProfilePayload = {
   email?: string;
   display_name: string;
   role: "buyer" | "seller";
+  phone?: string | null;
 };
 
 type AuthUser = {
@@ -17,6 +18,7 @@ type EnsureProfileOverrides = {
   displayName: string;
   role: "buyer" | "seller";
   email: string;
+  phone?: string | null;
 };
 
 export async function ensureProfile(
@@ -40,16 +42,20 @@ export async function ensureProfile(
       email: overrides.email,
       display_name: overrides.displayName,
       role: overrides.role,
+      phone: overrides.phone?.trim() || null,
     });
     return error?.message ?? null;
   }
 
-  const updates: Partial<Pick<ProfilePayload, "display_name" | "role">> = {};
+  const updates: Partial<Pick<ProfilePayload, "display_name" | "role" | "phone">> = {};
   if (!profile.display_name && overrides.displayName) {
     updates.display_name = overrides.displayName;
   }
   if (overrides.role === "seller" && profile.role !== "seller") {
     updates.role = "seller";
+  }
+  if (overrides.phone?.trim()) {
+    updates.phone = overrides.phone.trim();
   }
 
   if (Object.keys(updates).length > 0) {

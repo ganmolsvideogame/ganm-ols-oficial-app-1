@@ -1,4 +1,6 @@
 import Link from "next/link";
+
+import { normalizeListingHref } from "@/lib/listings/url";
 import { formatCentsToBRL } from "@/lib/utils/price";
 
 type ProductCardProps = {
@@ -22,15 +24,17 @@ export default function ProductCard({
   conditionLabel,
   shippingLabel,
 }: ProductCardProps) {
+  const resolvedHref = normalizeListingHref(href, title);
+
   return (
-    <Link href={href} className="block">
+    <Link href={resolvedHref} className="block">
       <div>
         <div className="ml-pimg">
           {thumbnailUrl ? (
             <img
               src={thumbnailUrl}
               alt={title}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain"
               loading="lazy"
             />
           ) : (

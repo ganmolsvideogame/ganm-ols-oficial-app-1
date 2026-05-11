@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useRef } from "react";
 
 export function ProductCarousel({
@@ -22,8 +23,18 @@ export function ProductCarousel({
       <div ref={ref} className="ml-rail">
         {children}
       </div>
-      <button type="button" className="ml-arrow left" aria-label="Voltar" onClick={() => scrollBy(-1)} />
-      <button type="button" className="ml-arrow right" aria-label="Avançar" onClick={() => scrollBy(1)} />
+      <button
+        type="button"
+        className="ml-arrow left"
+        aria-label="Voltar"
+        onClick={() => scrollBy(-1)}
+      />
+      <button
+        type="button"
+        className="ml-arrow right"
+        aria-label="Avancar"
+        onClick={() => scrollBy(1)}
+      />
     </div>
   );
 }

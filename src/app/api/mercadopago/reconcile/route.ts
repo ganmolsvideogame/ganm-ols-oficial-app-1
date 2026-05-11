@@ -7,10 +7,10 @@ type PaymentSearchResponse = {
   results?: Array<{ id?: number | string }>;
 };
 
-async function fetchPaymentsByPreference(preferenceId: string) {
+async function fetchPaymentsByExternalReference(externalReference: string) {
   const accessToken = getMercadoPagoAccessToken();
   const url = new URL("https://api.mercadopago.com/v1/payments/search");
-  url.searchParams.set("preference_id", preferenceId);
+  url.searchParams.set("external_reference", externalReference);
   url.searchParams.set("sort", "date_created");
   url.searchParams.set("criteria", "desc");
   const response = await fetch(url.toString(), {
@@ -28,10 +28,40 @@ async function fetchPaymentsByPreference(preferenceId: string) {
 }
 
 async function reconcilePreference(
+  admin: ReturnType<typeof createAdminClient>,
   baseUrl: string,
   preferenceId: string
 ): Promise<number> {
-  const paymentIds = await fetchPaymentsByPreference(preferenceId);
+  const references = new Set<string>();
+
+  const { data: orders } = await admin
+    .from("orders")
+    .select("id")
+    .eq("mp_preference_id", preferenceId)
+    .limit(25);
+  (orders ?? []).forEach((order) => {
+    if (order?.id) {
+      references.add(order.id);
+    }
+  });
+
+  const { data: cartCheckouts } = await admin
+    .from("cart_checkouts")
+    .select("id")
+    .eq("mp_preference_id", preferenceId)
+    .limit(25);
+  (cartCheckouts ?? []).forEach((checkout) => {
+    if (checkout?.id) {
+      references.add(checkout.id);
+    }
+  });
+
+  const paymentIds = new Set<string>();
+  for (const reference of references) {
+    const ids = await fetchPaymentsByExternalReference(reference);
+    ids.forEach((id) => paymentIds.add(id));
+  }
+
   let processed = 0;
   for (const paymentId of paymentIds) {
     await fetch(`${baseUrl}/api/mercadopago/webhook?id=${paymentId}`, {
@@ -93,7 +123,7 @@ export async function GET(request: Request) {
 
   let processed = 0;
   for (const preferenceId of preferences) {
-    processed += await reconcilePreference(baseUrl, preferenceId);
+    processed += await reconcilePreference(admin, baseUrl, preferenceId);
   }
 
   return NextResponse.json({

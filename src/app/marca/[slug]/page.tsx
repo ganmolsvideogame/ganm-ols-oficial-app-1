@@ -1,37 +1,107 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
-import { FAMILIES, SUBCATEGORIES } from "@/lib/mock/data";
-import { createClient } from "@/lib/supabase/server";
+import {
+  buildFamilySubcategoryPath,
+  FAMILIES,
+  SUBCATEGORIES,
+} from "@/lib/mock/data";
+import {
+  filterListingsForFamily,
+  getPublicCatalogListings,
+} from "@/lib/listings/public-catalog";
+import { buildListingPath } from "@/lib/listings/url";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { buildAbsoluteUrl } from "@/lib/utils/site";
 import ListingCard from "@/components/listings/ListingCard";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 type PageProps = {
-  params: { slug: string };
+  params: { slug: string } | Promise<{ slug: string }>;
 };
 
-type ListingRow = {
-  id: string;
-  title: string;
-  price_cents: number | null;
-  condition: string | null;
-  family: string | null;
-  platform: string | null;
-  shipping_available: boolean | null;
-  free_shipping: boolean | null;
-  thumbnail_url: string | null;
-};
+async function resolvePageData(slug: string) {
+  const family = FAMILIES.find((item) => item.slug === slug);
+
+  if (!family) {
+    return null;
+  }
+
+  const subcategories = SUBCATEGORIES[slug] ?? [];
+  const listings = filterListingsForFamily(await getPublicCatalogListings(), family);
+
+  return { family, subcategories, listings };
+}
+
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const resolvedParams = await Promise.resolve(params);
+  const pageData = await resolvePageData(resolvedParams.slug);
+
+  if (!pageData) {
+    return {
+      title: "Plataforma nao encontrada | GANM OLS",
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  const { family, listings } = pageData;
+  const canonicalPath = `/marca/${family.slug}`;
+  const hasListings = listings.length > 0;
+  const description = hasListings
+    ? `Anuncios de ${family.name} na GANM OLS, com consoles, jogos e colecionaveis publicados por vendedores reais.`
+    : `A categoria ${family.name} da GANM OLS ainda nao possui anuncios ativos publicados.`;
+
+  return {
+    title: `${family.name} | GANM OLS`,
+    description,
+    alternates: {
+      canonical: canonicalPath,
+    },
+    robots: hasListings
+      ? undefined
+      : {
+          index: false,
+          follow: true,
+        },
+    openGraph: {
+      type: "website",
+      locale: "pt_BR",
+      siteName: "GANM OLS",
+      url: buildAbsoluteUrl(canonicalPath),
+      title: `${family.name} | GANM OLS`,
+      description,
+    },
+    twitter: {
+      card: "summary",
+      title: `${family.name} | GANM OLS`,
+      description,
+    },
+  };
+}
 
 export default async function Page({ params }: PageProps) {
-  const supabase = await createClient();
-  const family = FAMILIES.find((item) => item.slug === params.slug);
-  const subcategories = SUBCATEGORIES[params.slug] ?? [];
+  const resolvedParams = await Promise.resolve(params);
+  const pageData = await resolvePageData(resolvedParams.slug);
+
+  if (!pageData) {
+    notFound();
+  }
+
+  const { family, subcategories, listings } = pageData;
+  const admin = createAdminClient();
   const now = new Date();
 
-  const { data: categorySection } = await supabase
+  const { data: categorySection } = await admin
     .from("home_sections")
     .select("id, title, description, starts_at, ends_at, is_active")
-    .eq("slug", `category-${params.slug}`)
+    .eq("slug", `category-${resolvedParams.slug}`)
     .eq("section_type", "category")
     .maybeSingle();
 
@@ -41,7 +111,7 @@ export default async function Page({ params }: PageProps) {
     (!categorySection?.ends_at || new Date(categorySection.ends_at) >= now);
 
   const { data: categoryItems } = showCategorySection && categorySection?.id
-    ? await supabase
+    ? await admin
         .from("home_items")
         .select("id, image_url, href")
         .eq("section_id", categorySection.id)
@@ -51,45 +121,34 @@ export default async function Page({ params }: PageProps) {
 
   const categoryBanner = (categoryItems ?? [])[0];
 
-  let listingQuery = supabase
-    .from("listings_with_boost")
-    .select(
-      "id, title, price_cents, condition, family, platform, shipping_available, free_shipping, thumbnail_url"
-    )
-    .eq("status", "active")
-    .eq("moderation_status", "approved");
-
-  if (family?.name) {
-    listingQuery = listingQuery.or(
-      `family.eq.${params.slug},family.ilike.%${family.name}%`
-    );
-  } else {
-    listingQuery = listingQuery.eq("family", params.slug);
-  }
-
-  const { data } = await listingQuery
-    .order("boost_priority", { ascending: false })
-    .order("created_at", { ascending: false });
-
-  const listings = (data ?? []) as ListingRow[];
-
   return (
     <div className="space-y-8">
       {categoryBanner?.image_url ? (
-        <div className="overflow-hidden">
+        <div
+          className="mx-auto max-w-[2172px] overflow-hidden bg-white"
+          style={{ aspectRatio: "2172 / 724" }}
+        >
           {categoryBanner.href ? (
-            <Link href={categoryBanner.href}>
+            <Link href={categoryBanner.href} className="block h-full w-full">
               <img
                 src={categoryBanner.image_url}
                 alt={categorySection?.title || family?.name || "Banner"}
-                className="w-full object-cover"
+                className="h-full w-full object-contain"
+                width={2172}
+                height={724}
+                loading="eager"
+                decoding="async"
               />
             </Link>
           ) : (
             <img
               src={categoryBanner.image_url}
               alt={categorySection?.title || family?.name || "Banner"}
-              className="w-full object-cover"
+              className="h-full w-full object-contain"
+              width={2172}
+              height={724}
+              loading="eager"
+              decoding="async"
             />
           )}
         </div>
@@ -113,9 +172,7 @@ export default async function Page({ params }: PageProps) {
         {subcategories.map((subcategory) => (
           <Link
             key={subcategory}
-            href={`/buscar?familia=${params.slug}&sub=${encodeURIComponent(
-              subcategory.toLowerCase()
-            )}`}
+            href={buildFamilySubcategoryPath(resolvedParams.slug, subcategory)}
             className="rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-600"
           >
             {subcategory}
@@ -132,8 +189,8 @@ export default async function Page({ params }: PageProps) {
           listings.map((item) => (
             <ListingCard
               key={item.id}
-              href={`/produto/${item.id}`}
-              title={item.title}
+              href={buildListingPath(item.id, item.title)}
+              title={item.title ?? "Anuncio"}
               priceCents={item.price_cents}
               thumbnailUrl={item.thumbnail_url}
               platformFallback={item.platform}

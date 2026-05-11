@@ -1,14 +1,16 @@
 import Link from "next/link";
 
 import SignOutButton from "@/components/auth/SignOutButton";
+import HeaderDropdown from "@/components/header/HeaderDropdown";
 import { ADMIN_PATHS } from "@/lib/config/admin";
 import { createClient } from "@/lib/supabase/server";
 
 type AccountSlotProps = {
   compact?: boolean;
+  dark?: boolean;
 };
 
-export default async function AccountSlot({ compact }: AccountSlotProps) {
+export default async function AccountSlot({ compact, dark }: AccountSlotProps) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -18,7 +20,11 @@ export default async function AccountSlot({ compact }: AccountSlotProps) {
     return (
       <Link
         href="/entrar"
-        className={`flex items-center justify-center rounded-full border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-800 hover:border-zinc-300 hover:bg-zinc-50 ${
+        className={`flex items-center justify-center rounded-full border px-3 py-2 text-sm font-medium ${
+          dark
+            ? "border-white/20 text-white hover:border-white/40 hover:bg-white/10"
+            : "border-zinc-200 text-zinc-800 hover:border-zinc-300 hover:bg-zinc-50"
+        } ${
           compact ? "px-2 py-1 text-xs" : ""
         }`}
       >
@@ -49,21 +55,38 @@ export default async function AccountSlot({ compact }: AccountSlotProps) {
   const isSeller = profile?.role === "seller";
 
   return (
-    <details className="group relative">
-      <summary
-        className={`cursor-pointer list-none rounded-full border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-800 hover:border-zinc-300 hover:bg-zinc-50 ${
-          compact ? "px-2 py-1 text-xs" : ""
-        }`}
-      >
-        <span>{`Ola, ${displayName}`}</span>
-      </summary>
-      <div className="absolute right-0 mt-3 w-52 rounded-2xl border border-zinc-200 bg-white py-2 text-sm text-zinc-700 shadow-xl">
+    <HeaderDropdown
+      wrapperClassName="relative"
+      panelClassName="absolute right-0 mt-3 w-52 rounded-2xl border border-zinc-200 bg-white py-2 text-sm text-zinc-700 shadow-xl"
+      trigger={
+        <span
+          className={`flex items-center justify-center rounded-full border px-3 py-2 text-sm font-medium ${
+            dark
+              ? "border-white/20 text-white hover:border-white/40 hover:bg-white/10"
+              : "border-zinc-200 text-zinc-800 hover:border-zinc-300 hover:bg-zinc-50"
+          } ${
+            compact ? "px-2 py-1 text-xs" : ""
+          }`}
+        >
+          {`Ola, ${displayName}`}
+        </span>
+      }
+    >
+      <div>
         <Link
           className="block px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
-          href="/vender"
+          href={isSeller ? "/vender" : "/vender/comece"}
         >
           {isSeller ? "Painel do vendedor" : "Quero vender"}
         </Link>
+        {isSeller ? (
+          <Link
+            className="block px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
+            href="/vender/vendas"
+          >
+            Minhas vendas
+          </Link>
+        ) : null}
         <Link
           className="block px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
           href="/conta"
@@ -95,6 +118,6 @@ export default async function AccountSlot({ compact }: AccountSlotProps) {
           className="block w-full px-4 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50"
         />
       </div>
-    </details>
+    </HeaderDropdown>
   );
 }

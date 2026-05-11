@@ -12,6 +12,7 @@ import {
 import { calculateShipping } from "@/lib/shipping/superfrete";
 import { resolvePackageDimensions } from "@/lib/shipping/presets";
 import { createCartLabel } from "@/lib/superfrete/api";
+import { insertNotificationsWithPush } from "@/lib/push/delivery";
 
 const DOC_REQUIRED_SERVICES = new Set(["3", "31"]);
 
@@ -339,6 +340,10 @@ async function handlePreference(
 
       const cartPayload: Record<string, unknown> = {
         platform: "GANM OLS",
+        order: {
+          id: orderId,
+          description: listing.title,
+        },
         service: Number.isFinite(serviceValue) ? serviceValue : serviceIdForLabel,
         from: {
           name: fromName,
@@ -527,7 +532,7 @@ async function handlePreference(
     });
   });
 
-  await admin.from("notifications").insert(notifications);
+  await insertNotificationsWithPush(admin, notifications);
 
   if (coupon) {
     await supabase.from("coupon_redemptions").insert({

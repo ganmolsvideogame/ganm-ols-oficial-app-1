@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 
+import { sendBrevoEmail } from "@/lib/brevo/client";
+import { buildCartAlertEmail } from "@/lib/brevo/templates";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { insertNotificationsWithPush } from "@/lib/push/delivery";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -60,10 +63,25 @@ export async function POST(request: Request) {
   }
 
   const adminIds = Array.from(new Set([...directAdminIds, ...emailResolvedIds]));
-
-  if (adminIds.length === 0) {
-    return NextResponse.json({ ok: true });
-  }
+  const profileAdminEmails =
+    adminIds.length > 0
+      ? (
+          await admin
+            .from("profiles")
+            .select("email")
+            .in("id", adminIds)
+        ).data ?? []
+      : [];
+  const targetAdminEmails = Array.from(
+    new Set(
+      [
+        ...adminEmails,
+        ...profileAdminEmails
+          .map((row) => String(row.email ?? "").trim().toLowerCase())
+          .filter((value): value is string => Boolean(value)),
+      ].filter(Boolean)
+    )
+  );
 
   const buyerLabel = profile?.display_name || profile?.email || "Um usuario";
   const title = "Item adicionado ao carrinho";
@@ -71,26 +89,58 @@ export async function POST(request: Request) {
     ? `${buyerLabel} adicionou ${listing.title} ao carrinho.`
     : `${buyerLabel} adicionou um item ao carrinho.`;
 
-  const notifications = adminIds.map((adminId) => ({
-    user_id: adminId,
-    title,
-    body: bodyText,
-    link: listing?.id ? `/produto/${listing.id}` : null,
-    type: "carts",
-  }));
+  const { error: analyticsError } = await admin.from("analytics_events").insert({
+    event_type: "add_to_cart",
+    user_id: user.id,
+    listing_id: listingId,
+    metadata: {
+      listing_title: listing?.title ?? null,
+      seller_user_id: listing?.seller_user_id ?? null,
+      actor_label: buyerLabel,
+      actor_email: profile?.email ?? user.email ?? null,
+      source: "cart_button",
+      path: `/produto/${listingId}`,
+    },
+  });
 
-  const { error: insertError } = await admin
-    .from("notifications")
-    .insert(notifications);
+  if (analyticsError) {
+    console.warn("cart-add analytics insert failed:", analyticsError.message);
+  }
 
-  if (insertError) {
-    const fallbackNotifications = adminIds.map((adminId) => ({
+  if (adminIds.length > 0) {
+    const notifications = adminIds.map((adminId) => ({
       user_id: adminId,
       title,
       body: bodyText,
       link: listing?.id ? `/produto/${listing.id}` : null,
+      type: "carts",
     }));
-    await admin.from("notifications").insert(fallbackNotifications);
+
+    await insertNotificationsWithPush(admin, notifications);
+  }
+
+  const baseUrl =
+    process.env.APP_BASE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    new URL(request.url).origin;
+  const productUrl = listing?.id
+    ? new URL(`/produto/${listing.id}`, baseUrl).toString()
+    : baseUrl;
+  const brevoTemplate = buildCartAlertEmail({
+    buyerLabel,
+    listingTitle: listing?.title ?? "um item",
+    actionUrl: productUrl,
+  });
+  const brevoResult = await sendBrevoEmail({
+    to: targetAdminEmails.map((email) => ({ email })),
+    subject: brevoTemplate.subject,
+    htmlContent: brevoTemplate.html,
+    textContent: brevoTemplate.text,
+    tags: ["cart-alert", "admin"],
+  });
+
+  if (!brevoResult.ok && !brevoResult.skipped) {
+    console.warn("Brevo cart alert failed:", brevoResult.error ?? "unknown");
   }
 
   return NextResponse.json({ ok: true });

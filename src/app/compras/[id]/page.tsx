@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { formatCentsToBRL } from "@/lib/utils/price";
 import { BUYER_APPROVAL_DAYS } from "@/lib/config/commerce";
 import { AUCTION_PAYMENT_WINDOW_DAYS } from "@/lib/auctions";
+import { buildSuperfretePrintUrl } from "@/lib/superfrete/print-url";
 
 export const dynamic = "force-dynamic";
 
@@ -104,7 +105,7 @@ export default async function BuyerOrderDetailsPage({ params }: PageProps) {
   const { data: order, error } = await admin
     .from("orders")
     .select(
-      "id, listing_id, buyer_user_id, seller_user_id, amount_cents, fee_cents, shipping_cost_cents, shipping_paid_by, shipping_service_name, status, created_at, approved_at, delivered_at, available_at, buyer_approval_deadline_at, payment_deadline_at, mp_payment_id, shipping_status, shipping_provider, shipping_tracking, shipping_label_url, superfrete_id, superfrete_status, superfrete_print_url, cancel_status, cancel_requested_by, cancel_requested_at, cancel_deadline_at, cancel_reason, listings(title, thumbnail_url, listing_type)"
+      "id, listing_id, buyer_user_id, seller_user_id, amount_cents, fee_cents, shipping_cost_cents, shipping_paid_by, shipping_service_name, status, created_at, approved_at, delivered_at, available_at, buyer_approval_deadline_at, payment_deadline_at, mp_payment_id, shipping_status, shipping_provider, shipping_tracking, shipping_label_url, superfrete_id, superfrete_status, superfrete_tracking, superfrete_print_url, cancel_status, cancel_requested_by, cancel_requested_at, cancel_deadline_at, cancel_reason, listings(title, thumbnail_url, listing_type)"
     )
     .eq("id", orderId)
     .maybeSingle();
@@ -125,6 +126,8 @@ export default async function BuyerOrderDetailsPage({ params }: PageProps) {
 
   const events = (eventsData ?? []) as OrderEventRow[];
   const listing = order.listings?.[0] ?? null;
+  const printableLabelUrl =
+    buildSuperfretePrintUrl(order.superfrete_id) || order.superfrete_print_url;
   const isAuctionOrder = listing?.listing_type === "auction";
   const paymentDeadline = parseDate(order.payment_deadline_at);
   const paymentExpired = paymentDeadline && paymentDeadline <= new Date();
@@ -241,13 +244,13 @@ export default async function BuyerOrderDetailsPage({ params }: PageProps) {
               Rastreio
             </p>
             <p className="mt-2 font-semibold text-zinc-900">
-              {order.shipping_tracking ?? "Sem codigo"}
+              {order.shipping_tracking ?? order.superfrete_tracking ?? "Sem codigo"}
             </p>
           </div>
         </div>
-        {order.superfrete_print_url ? (
+        {order.superfrete_status === "released" && printableLabelUrl ? (
           <a
-            href={order.superfrete_print_url}
+            href={printableLabelUrl}
             target="_blank"
             rel="noreferrer"
             className="mt-4 inline-flex rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700"

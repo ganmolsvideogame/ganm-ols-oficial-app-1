@@ -9,6 +9,7 @@ type AddressFieldsProps = {
   initialCity: string;
   initialState: string;
   initialZipcode: string;
+  required?: boolean;
 };
 
 type ViaCepResponse = {
@@ -28,6 +29,7 @@ export default function AddressFields({
   initialCity,
   initialState,
   initialZipcode,
+  required = false,
 }: AddressFieldsProps) {
   const [addressLine1, setAddressLine1] = useState(initialAddressLine1);
   const [addressLine2, setAddressLine2] = useState(initialAddressLine2);
@@ -76,13 +78,14 @@ export default function AddressFields({
       <p className="text-sm font-semibold text-zinc-900">Endereco</p>
       <div className="grid gap-4 md:grid-cols-2">
         <label className="flex flex-col gap-2 text-sm text-zinc-700">
-          Rua e numero
+          Rua e numero {required ? "*" : ""}
           <input
             className="rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
             name="address_line1"
             value={addressLine1}
             onChange={(event) => setAddressLine1(event.target.value)}
             placeholder="Rua, numero"
+            required={required}
           />
         </label>
         <label className="flex flex-col gap-2 text-sm text-zinc-700">
@@ -96,43 +99,47 @@ export default function AddressFields({
           />
         </label>
         <label className="flex flex-col gap-2 text-sm text-zinc-700">
-          Bairro
+          Bairro {required ? "*" : ""}
           <input
             className="rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
             name="district"
             value={district}
             onChange={(event) => setDistrict(event.target.value)}
             placeholder="Bairro"
+            required={required}
           />
         </label>
         <label className="flex flex-col gap-2 text-sm text-zinc-700">
-          Cidade
+          Cidade {required ? "*" : ""}
           <input
             className="rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
             name="city"
             value={city}
             onChange={(event) => setCity(event.target.value)}
             placeholder="Cidade"
+            required={required}
           />
         </label>
         <label className="flex flex-col gap-2 text-sm text-zinc-700">
-          Estado
+          Estado {required ? "*" : ""}
           <input
             className="rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
             name="state"
             value={state}
             onChange={(event) => setState(event.target.value)}
             placeholder="Estado"
+            required={required}
           />
         </label>
         <label className="flex flex-col gap-2 text-sm text-zinc-700">
-          CEP
+          CEP {required ? "*" : ""}
           <input
             className="rounded-2xl border border-zinc-200 px-4 py-3 text-sm"
             name="zipcode"
             value={zipcode}
             onChange={(event) => setZipcode(event.target.value)}
             placeholder="00000-000"
+            required={required}
           />
         </label>
       </div>

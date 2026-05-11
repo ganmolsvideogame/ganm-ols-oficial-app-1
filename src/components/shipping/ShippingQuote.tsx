@@ -216,7 +216,7 @@ export default function ShippingQuote({
         </button>
       </form>
       {cityLabel ? (
-        <p className="mt-2 text-xs text-zinc-500">Cidade: {cityLabel}</p>
+        <p className="mt-2 break-words text-xs text-zinc-500">Cidade: {cityLabel}</p>
       ) : null}
       {error ? <p className="mt-2 text-xs text-rose-600">{error}</p> : null}
       {options.length > 0 ? (
@@ -253,9 +253,9 @@ export default function ShippingQuote({
                       window.dispatchEvent(new Event("shipping-service-updated"));
                     }}
                   />
-                  <div className="flex-1">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-3 text-sm">
-                      <span className="font-semibold text-zinc-900">
+                      <span className="min-w-0 break-words font-semibold text-zinc-900">
                         {option.service_name}
                       </span>
                       <span className="font-semibold text-zinc-900">

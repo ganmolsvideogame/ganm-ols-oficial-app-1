@@ -21,21 +21,13 @@ function ResetPasswordContent() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [tokens, setTokens] = useState<{
+  const tokens = useMemo<{
     code: string | null;
     accessToken: string | null;
     refreshToken: string | null;
     token: string | null;
     type: string | null;
-  }>({
-    code: null,
-    accessToken: null,
-    refreshToken: null,
-    token: null,
-    type: null,
-  });
-
-  const readTokens = () => {
+  }>(() => {
     const hashParams =
       typeof window !== "undefined" && window.location.hash
         ? new URLSearchParams(window.location.hash.replace(/^#/, ""))
@@ -49,13 +41,10 @@ function ResetPasswordContent() {
     const type = searchParams.get("type") ?? hashParams?.get("type") ?? null;
 
     return { code, accessToken, refreshToken, token, type };
-  };
+  }, [searchParams]);
 
   useEffect(() => {
-    const nextTokens = readTokens();
-    setTokens(nextTokens);
-
-    if (!nextTokens.code && !nextTokens.accessToken && !nextTokens.token) {
+    if (!tokens.code && !tokens.accessToken && !tokens.token) {
       return;
     }
 
@@ -66,18 +55,18 @@ function ResetPasswordContent() {
         return;
       }
 
-      if (nextTokens.code) {
+      if (tokens.code) {
         const { error: exchangeError } =
-          await supabase.auth.exchangeCodeForSession(nextTokens.code);
+          await supabase.auth.exchangeCodeForSession(tokens.code);
         if (exchangeError) {
           setError("Link expirado. Solicite um novo link de recuperacao.");
         }
         return;
       }
 
-      if (nextTokens.token && nextTokens.type === "recovery") {
+      if (tokens.token && tokens.type === "recovery") {
         const { error: verifyError } = await supabase.auth.verifyOtp({
-          token_hash: nextTokens.token,
+          token_hash: tokens.token,
           type: "recovery",
         });
         if (verifyError) {
@@ -86,10 +75,10 @@ function ResetPasswordContent() {
         return;
       }
 
-      if (nextTokens.accessToken && nextTokens.refreshToken) {
+      if (tokens.accessToken && tokens.refreshToken) {
         const { error: sessionError } = await supabase.auth.setSession({
-          access_token: nextTokens.accessToken,
-          refresh_token: nextTokens.refreshToken,
+          access_token: tokens.accessToken,
+          refresh_token: tokens.refreshToken,
         });
         if (sessionError) {
           setError("Link expirado. Solicite um novo link de recuperacao.");
@@ -108,7 +97,7 @@ function ResetPasswordContent() {
         window.location.pathname + window.location.search
       );
     }
-  }, [searchParams, supabase]);
+  }, [supabase, tokens]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

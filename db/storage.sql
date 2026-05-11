@@ -6,6 +6,10 @@ insert into storage.buckets (id, name, public)
 values ('home-banners', 'home-banners', true)
 on conflict (id) do update set public = true;
 
+insert into storage.buckets (id, name, public)
+values ('store-images', 'store-images', true)
+on conflict (id) do update set public = true;
+
 alter table storage.objects enable row level security;
 
 drop policy if exists "Public read listing images" on storage.objects;
@@ -16,6 +20,10 @@ drop policy if exists "Public read home banners" on storage.objects;
 drop policy if exists "Admins can upload home banners" on storage.objects;
 drop policy if exists "Admins can update home banners" on storage.objects;
 drop policy if exists "Admins can delete home banners" on storage.objects;
+drop policy if exists "Public read store images" on storage.objects;
+drop policy if exists "Users can upload store images" on storage.objects;
+drop policy if exists "Users can update store images" on storage.objects;
+drop policy if exists "Users can delete store images" on storage.objects;
 
 create policy "Public read listing images"
   on storage.objects for select
@@ -68,4 +76,32 @@ create policy "Admins can delete home banners"
   using (
     bucket_id = 'home-banners'
     and is_admin()
+  );
+
+create policy "Public read store images"
+  on storage.objects for select
+  using (bucket_id = 'store-images');
+
+create policy "Users can upload store images"
+  on storage.objects for insert
+  with check (
+    bucket_id = 'store-images'
+    and auth.uid() is not null
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "Users can update store images"
+  on storage.objects for update
+  using (
+    bucket_id = 'store-images'
+    and auth.uid() is not null
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "Users can delete store images"
+  on storage.objects for delete
+  using (
+    bucket_id = 'store-images'
+    and auth.uid() is not null
+    and (storage.foldername(name))[1] = auth.uid()::text
   );

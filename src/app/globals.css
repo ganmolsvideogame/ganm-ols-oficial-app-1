@@ -18,6 +18,26 @@
 body {
   background: var(--background);
   color: var(--foreground);
+  overflow-x: clip;
+}
+
+html {
+  overflow-x: clip;
+}
+
+body.listing-flow-dedicated [data-shell-header],
+body.listing-flow-dedicated [data-shell-footer],
+body.listing-flow-dedicated [data-shell-support],
+body.listing-flow-dedicated [data-shell-mobile-nav] {
+  display: none !important;
+}
+
+body.listing-flow-dedicated [data-shell-main] {
+  padding: 0 !important;
+}
+
+.native-app-header {
+  padding-top: max(env(safe-area-inset-top), 12px);
 }
 
 @keyframes fade-up {
@@ -40,6 +60,36 @@ body {
   }
 }
 
+@keyframes seller-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0);
+  }
+}
+
+@keyframes seller-sway {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(0, 8px, 0) rotate(1deg);
+  }
+}
+
+@keyframes seller-glow {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
 :root{
   /* base ML */
   --ml-bg: #ffffff;
@@ -53,9 +103,9 @@ body {
   --go-muted: #6b7280;
 
   /* “verde do ML” => AQUI vira AZUL (links/destaques/etiquetas) */
-  --go-blue: #3483fa;         /* azul ML-like */
-  --go-blue-soft: #e8f1ff;
-  --go-blue-strong: #1d4ed8;
+  --go-blue: #18181b;
+  --go-blue-soft: #f4f4f5;
+  --go-blue-strong: #18181b;
 }
 
 .ganm-ml-scope{
@@ -134,14 +184,14 @@ body {
     border-color: var(--go-blue);
     color: #fff;
   }
-  .ml-btn-primary:hover{ background: #2f74e2; }
+  .ml-btn-primary:hover{ background: #27272a; }
 
   /* chips/etiquetas (substitui “verde” por azul) */
   .ml-chip{
     @apply inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold;
     background: var(--go-blue-soft);
     color: var(--go-blue-strong);
-    border: 1px solid rgba(52,131,250,.25);
+    border: 1px solid rgba(24,24,27,.14);
     white-space: nowrap;
   }
   .ml-sub{ @apply text-sm; color: var(--go-muted); }
@@ -169,26 +219,30 @@ body {
     border: none;
     background: #ffffff;
     position: relative;
+    aspect-ratio: 2172 / 724;
+    max-width: 2172px;
+    margin-inline: auto;
   }
   .ml-banner-slide{
     display:none;
-    height: 240px;
-  }
-  @media (min-width: 768px){
-    .ml-banner-slide{ height: 320px; }
+    width: 100%;
+    height: 100%;
   }
   .ml-banner-slide.is-active{ display:block; }
 
   .ml-banner-img{
     width:100%; height:100%;
-    object-fit: cover;
+    object-fit: contain;
+    object-position: center;
     display:block;
+    image-rendering: auto;
+    image-rendering: -webkit-optimize-contrast;
   }
 
   .ml-dots{
     position:absolute;
     left: 50%;
-    bottom: 10px;
+    bottom: clamp(10px, 2.5vw, 22px);
     transform: translateX(-50%);
     display:flex;
     gap: 6px;
@@ -241,10 +295,12 @@ body {
   /* =========================
      CARROSSEL DE PRODUTOS (seta circular lateral, swipe no mobile)
      ========================= */
-  .ml-rail-wrap{ @apply relative; }
+  .ml-rail-wrap{ @apply relative max-w-full; }
   .ml-rail{
-    @apply flex gap-6 overflow-x-auto scroll-smooth;
+    @apply flex w-full min-w-0 gap-6 overflow-x-auto scroll-smooth;
     scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
     padding-bottom: 6px;
   }
   .ml-rail-item{ scroll-snap-align: start; min-width: 210px; }
@@ -264,8 +320,8 @@ body {
     cursor:pointer;
     user-select:none;
   }
-  .ml-arrow.left{ left: -18px; }
-  .ml-arrow.right{ right: -18px; }
+  .ml-arrow.left{ left: 10px; }
+  .ml-arrow.right{ right: 10px; }
   .ml-arrow::before{
     content:"";
     width: 10px; height: 10px;

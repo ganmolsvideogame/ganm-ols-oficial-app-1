@@ -7,6 +7,7 @@ import useCartCount from "@/components/cart/useCartCount";
 const navItems = [
   { href: "/", label: "Inicio" },
   { href: "/categorias", label: "Categorias" },
+  { href: "/blog", label: "Conteudo" },
   { href: "/favoritos", label: "Favoritos" },
   { href: "/compras", label: "Compras" },
   { href: "/carrinho", label: "Carrinho", hasBadge: true },
@@ -62,6 +63,24 @@ function HeartIcon({ className }: { className?: string }) {
   );
 }
 
+function NewsIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+    >
+      <path
+        d="M6.5 5.5h8l3 3V18a1 1 0 0 1-1 1h-10a1 1 0 0 1-1-1v-11a1.5 1.5 0 0 1 1.5-1.5Z"
+        strokeLinejoin="round"
+      />
+      <path d="M9 10h5M9 13.5h5M9 7.5h2.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function BagIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -100,7 +119,7 @@ function CartIcon({ className }: { className?: string }) {
   );
 }
 
-const icons = [HomeIcon, GridIcon, HeartIcon, BagIcon, CartIcon];
+const icons = [HomeIcon, GridIcon, NewsIcon, HeartIcon, BagIcon, CartIcon];
 
 export default function MobileBottomNav() {
   const pathname = usePathname();
@@ -108,7 +127,7 @@ export default function MobileBottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white/95 px-2 pb-[env(safe-area-inset-bottom)] pt-2 backdrop-blur md:hidden">
-      <div className="grid grid-cols-5 gap-1">
+      <div className="grid grid-cols-6 gap-1">
         {navItems.map((item, index) => {
           const Icon = icons[index];
           const isActive =

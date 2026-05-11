@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
+import { sendBrevoShippingUpdateEmails } from "@/lib/brevo/order-emails";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { getOrderInfo, getPrintableUrl } from "@/lib/superfrete/api";
+import { refreshOrderSuperfrete } from "@/lib/superfrete/refresh";
 
 function buildRedirect(request: Request, params?: Record<string, string>) {
   const url = new URL("/vender", request.url);
@@ -22,6 +24,7 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createClient();
+  const admin = createAdminClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -30,9 +33,11 @@ export async function POST(request: Request) {
     return buildRedirect(request, { error: "Sessao expirada" });
   }
 
-  const { data: order } = await supabase
+  const { data: order } = await admin
     .from("orders")
-    .select("id, seller_user_id, superfrete_id")
+    .select(
+      "id, seller_user_id, listing_id, buyer_user_id, quantity, shipping_service_id, shipping_status, shipping_tracking, superfrete_id, superfrete_tag_id, superfrete_status, superfrete_tracking, superfrete_print_url"
+    )
     .eq("id", orderId)
     .maybeSingle();
 
@@ -40,26 +45,21 @@ export async function POST(request: Request) {
     return buildRedirect(request, { error: "Pedido nao encontrado" });
   }
 
-  if (!order.superfrete_id) {
-    return buildRedirect(request, { error: "Etiqueta nao configurada" });
-  }
-
   try {
-    const info = await getOrderInfo(order.superfrete_id);
-    const printOverride =
-      info.status === "released"
-        ? await getPrintableUrl(order.superfrete_id)
-        : null;
-    const printUrl = printOverride?.url || info.printUrl;
-    await supabase
+    const result = await refreshOrderSuperfrete(admin, order);
+    const { data: refreshedOrder } = await admin
       .from("orders")
-      .update({
-        superfrete_status: info.status ?? "pending",
-        superfrete_tracking: info.tracking,
-        superfrete_print_url: printUrl,
-        superfrete_raw_info: info.raw,
-      })
-      .eq("id", orderId);
+      .select(
+        "id, buyer_user_id, seller_user_id, listing_id, shipping_status, shipping_tracking, superfrete_id, superfrete_status, superfrete_tracking, superfrete_print_url"
+      )
+      .eq("id", orderId)
+      .maybeSingle();
+    if (refreshedOrder) {
+      await sendBrevoShippingUpdateEmails(admin, [refreshedOrder]);
+    }
+    if (!result.ok && result.message) {
+      return buildRedirect(request, { error: result.message });
+    }
     return buildRedirect(request, { success: "Etiqueta atualizada" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro SuperFrete";

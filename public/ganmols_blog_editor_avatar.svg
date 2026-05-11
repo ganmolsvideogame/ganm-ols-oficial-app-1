@@ -1,0 +1,13 @@
+<svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="160" height="160" rx="80" fill="url(#paint0_linear_1_2)"/>
+  <circle cx="80" cy="62" r="28" fill="#FFF7ED"/>
+  <path d="M42 130C42 106.804 60.804 88 84 88H88C111.196 88 130 106.804 130 130V136H42V130Z" fill="#FFF7ED"/>
+  <path d="M68.5 54.5C73.1 45.7 82.8 40 93.5 40C108.136 40 120 51.8645 120 66.5C120 70.4 119.1 74.2 117.5 77.5C111.6 69.3 101.9 64 91 64C81.1 64 72.2 68.3 66 75.3C64.7 72.5 64 69.5 64 66.5C64 62.1 65.6 57.9 68.5 54.5Z" fill="#111827"/>
+  <text x="24" y="34" fill="#E5E7EB" font-family="Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="5">GANM OLS</text>
+  <defs>
+    <linearGradient id="paint0_linear_1_2" x1="17" y1="15.5" x2="146" y2="151.5" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111827"/>
+      <stop offset="1" stop-color="#1F2937"/>
+    </linearGradient>
+  </defs>
+</svg>

@@ -4,6 +4,7 @@ import { createPreferenceClient } from "@/lib/mercadopago/client";
 import { getBaseUrl, shouldSendPayerEmail } from "@/lib/mercadopago/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { insertNotificationsWithPush } from "@/lib/push/delivery";
 
 function buildRedirect(
   request: Request,
@@ -181,7 +182,7 @@ async function handlePreferenceAuction(request: Request, orderId: string) {
     });
   });
 
-  await admin.from("notifications").insert(notifications);
+  await insertNotificationsWithPush(admin, notifications);
 
   return NextResponse.redirect(initPoint, { status: 303 });
 }

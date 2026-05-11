@@ -1,0 +1,30 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="900" fill="#F4F4F5"/>
+  <rect x="72" y="72" width="1456" height="756" rx="48" fill="url(#bg)"/>
+  <circle cx="1270" cy="220" r="170" fill="#18181B" fill-opacity="0.08"/>
+  <circle cx="1180" cy="700" r="220" fill="#2563EB" fill-opacity="0.12"/>
+  <circle cx="360" cy="190" r="150" fill="#E4E4E7"/>
+  <rect x="156" y="160" width="170" height="42" rx="21" fill="#18181B"/>
+  <text x="241" y="187" fill="white" font-size="20" font-family="Arial, sans-serif" text-anchor="middle" font-weight="700">GANM OLS</text>
+  <text x="156" y="318" fill="#18181B" font-size="80" font-family="Arial, sans-serif" font-weight="700">Top Gear no</text>
+  <text x="156" y="402" fill="#18181B" font-size="80" font-family="Arial, sans-serif" font-weight="700">Super Nintendo</text>
+  <text x="156" y="478" fill="#3F3F46" font-size="34" font-family="Arial, sans-serif" font-weight="500">O clássico de corrida que marcou uma geração</text>
+  <text x="156" y="586" fill="#18181B" font-size="28" font-family="Arial, sans-serif" font-weight="700">Velocidade arcade, estratégia e trilha cult</text>
+  <text x="156" y="632" fill="#52525B" font-size="24" font-family="Arial, sans-serif">Top Racer, pit stops, nitro e a força do retro no Brasil.</text>
+  <g>
+    <rect x="1048" y="256" width="324" height="248" rx="42" fill="white" fill-opacity="0.82"/>
+    <path d="M1106 404C1106 360.922 1140.92 326 1184 326H1237C1280.08 326 1315 360.922 1315 404V418H1106V404Z" fill="#18181B"/>
+    <rect x="1094" y="418" width="232" height="56" rx="28" fill="#EF4444"/>
+    <circle cx="1148" cy="484" r="36" fill="#18181B"/>
+    <circle cx="1272" cy="484" r="36" fill="#18181B"/>
+    <circle cx="1148" cy="484" r="16" fill="#F4F4F5"/>
+    <circle cx="1272" cy="484" r="16" fill="#F4F4F5"/>
+    <rect x="1168" y="370" width="84" height="18" rx="9" fill="#FACC15"/>
+  </g>
+  <defs>
+    <linearGradient id="bg" x1="156" y1="160" x2="1480" y2="828" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E4E4E7"/>
+    </linearGradient>
+  </defs>
+</svg>

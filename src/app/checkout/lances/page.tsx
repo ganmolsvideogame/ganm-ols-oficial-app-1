@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AUCTION_PAYMENT_WINDOW_DAYS, closeExpiredAuctions } from "@/lib/auctions";
+import TrackedAuctionCheckoutForm from "@/components/checkout/TrackedAuctionCheckoutForm";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { formatCentsToBRL } from "@/lib/utils/price";
@@ -171,16 +172,11 @@ export default async function AuctionCheckoutPage({ searchParams }: PageProps) {
             </p>
           </div>
 
-          <form action="/api/mercadopago/preference-auction" method="post">
-            <input type="hidden" name="order_id" value={orderRow.id} />
-            <button
-              type="submit"
-              disabled={deadlineExpired}
-              className="w-full rounded-full bg-zinc-900 px-6 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-400"
-            >
-              {deadlineExpired ? "Prazo encerrado" : "Pagar agora"}
-            </button>
-          </form>
+          <TrackedAuctionCheckoutForm
+            orderId={orderRow.id}
+            amountCents={orderRow.amount_cents ?? 0}
+            disabled={deadlineExpired}
+          />
 
           <Link
             href="/compras"

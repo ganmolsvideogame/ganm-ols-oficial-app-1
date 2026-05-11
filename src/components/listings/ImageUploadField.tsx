@@ -7,6 +7,7 @@ type ImageUploadFieldProps = {
   label?: string;
   helperText?: string;
   multiple?: boolean;
+  required?: boolean;
 };
 
 export default function ImageUploadField({
@@ -14,6 +15,7 @@ export default function ImageUploadField({
   label = "Fotos do anuncio",
   helperText = "Envie uma ou mais fotos para destacar o anuncio.",
   multiple = true,
+  required = false,
 }: ImageUploadFieldProps) {
   const [files, setFiles] = useState<File[]>([]);
 
@@ -35,7 +37,10 @@ export default function ImageUploadField({
   return (
     <div className="space-y-3">
       <div>
-        <label className="text-sm font-semibold text-zinc-700">{label}</label>
+        <label className="text-sm font-semibold text-zinc-700">
+          {label}
+          {required ? " *" : ""}
+        </label>
         <p className="mt-1 text-xs text-zinc-500">{helperText}</p>
       </div>
       <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 p-4">
@@ -44,6 +49,7 @@ export default function ImageUploadField({
           name={name}
           accept="image/*"
           multiple={multiple}
+          required={required}
           className="text-sm text-zinc-600"
           onChange={(event) => {
             const nextFiles = Array.from(event.target.files ?? []);
@@ -61,7 +67,7 @@ export default function ImageUploadField({
                 <img
                   src={preview.url}
                   alt={preview.name}
-                  className="h-full w-full object-cover"
+                  className="h-full w-full object-contain"
                 />
               </div>
             ))}

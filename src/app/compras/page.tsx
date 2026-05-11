@@ -1,10 +1,12 @@
 import Link from "next/link";
 
+import AutoRefreshPayments from "@/components/orders/AutoRefreshPayments";
 import AutoRefreshSuperfrete from "@/components/orders/AutoRefreshSuperfrete";
 import { AUCTION_PAYMENT_WINDOW_DAYS, closeExpiredAuctions } from "@/lib/auctions";
 import { BUYER_APPROVAL_DAYS, CANCEL_REASONS } from "@/lib/config/commerce";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { buildSuperfretePrintUrl } from "@/lib/superfrete/print-url";
 import { formatCentsToBRL } from "@/lib/utils/price";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +17,7 @@ type OrderRow = {
   amount_cents: number | null;
   status: string | null;
   mp_payment_id?: string | null;
+  mp_preference_id?: string | null;
   shipping_status?: string | null;
   shipping_service_name?: string | null;
   shipping_estimated_days?: number | null;
@@ -142,6 +145,17 @@ function formatBanner(status: string | null) {
   return null;
 }
 
+function resolveSuperfretePrintUrl(order: {
+  superfrete_id?: string | null;
+  superfrete_print_url?: string | null;
+}) {
+  return (
+    buildSuperfretePrintUrl(order.superfrete_id) ||
+    order.superfrete_print_url ||
+    null
+  );
+}
+
 export default async function Page({ searchParams }: PageProps) {
   const resolvedSearchParams = await Promise.resolve(searchParams);
   const bannerStatus = resolvedSearchParams?.status ?? null;
@@ -178,7 +192,7 @@ export default async function Page({ searchParams }: PageProps) {
   const { data: ordersData, error: ordersError } = await admin
     .from("orders")
     .select(
-      "id, listing_id, amount_cents, status, mp_payment_id, shipping_status, shipping_service_name, shipping_estimated_days, superfrete_tracking, superfrete_id, superfrete_status, superfrete_print_url, cancel_status, cancel_requested_by, cancel_requested_at, cancel_deadline_at, cancel_reason, delivered_at, buyer_approval_deadline_at, payment_deadline_at, created_at"
+      "id, listing_id, amount_cents, status, mp_payment_id, mp_preference_id, shipping_status, shipping_service_name, shipping_estimated_days, superfrete_tracking, superfrete_id, superfrete_status, superfrete_print_url, cancel_status, cancel_requested_by, cancel_requested_at, cancel_deadline_at, cancel_reason, delivered_at, buyer_approval_deadline_at, payment_deadline_at, created_at"
     )
     .eq("buyer_user_id", user.id)
     .order("created_at", { ascending: false });
@@ -210,7 +224,15 @@ export default async function Page({ searchParams }: PageProps) {
       (order) =>
         order.superfrete_id &&
         order.status === "approved" &&
-        (!order.superfrete_print_url || order.superfrete_status !== "released")
+        (!resolveSuperfretePrintUrl(order) || order.superfrete_status !== "released")
+    )
+    .map((order) => order.id);
+  const pendingPaymentOrderIds = orders
+    .filter(
+      (order) =>
+        order.status === "pending" &&
+        !order.mp_payment_id &&
+        Boolean(order.mp_preference_id)
     )
     .map((order) => order.id);
 
@@ -249,6 +271,7 @@ export default async function Page({ searchParams }: PageProps) {
           ) : null}
         </div>
       ) : null}
+      <AutoRefreshPayments orderIds={pendingPaymentOrderIds} />
       <AutoRefreshSuperfrete orderIds={pendingSuperfreteIds} />
 
       <div className="space-y-4">
@@ -378,7 +401,7 @@ export default async function Page({ searchParams }: PageProps) {
               </div>
               <div className="mt-4 flex flex-wrap gap-3">
                 <Link
-                  href={`/produto/${order.listing_id}`}
+                  href={`/compras/${order.id}`}
                   className="rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold text-white"
                 >
                   Ver detalhes

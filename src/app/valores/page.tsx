@@ -55,7 +55,7 @@ export default function Page() {
             entrega ao comprador.
           </p>
           <p>
-            Após o periodo de garantia, o saldo fica disponivel para saque no
+            Apos o periodo de garantia, o saldo fica disponivel para saque no
             painel do vendedor. Voce define o metodo de recebimento na sua conta.
           </p>
           <p>
@@ -67,7 +67,7 @@ export default function Page() {
 
       <div className="flex flex-wrap gap-3">
         <Link
-          href="/vender"
+          href="/vender/comece"
           className="rounded-full bg-zinc-900 px-6 py-3 text-sm font-semibold text-white"
         >
           Quero vender

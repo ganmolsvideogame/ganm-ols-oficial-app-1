@@ -51,7 +51,7 @@ export default async function AuthSlot() {
           </Link>
           <Link
             className="block px-4 py-2 text-zinc-700 hover:bg-zinc-50"
-            href="/vender"
+            href="/vender/comece"
           >
             Vender
           </Link>

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { ADMIN_PATHS } from "@/lib/config/admin";
 import { BUYER_APPROVAL_DAYS } from "@/lib/config/commerce";
 import { createClient } from "@/lib/supabase/server";
+import { insertNotificationsWithPush } from "@/lib/push/delivery";
 
 function buildRedirect(
   request: Request,
@@ -18,15 +19,24 @@ function buildRedirect(
   return NextResponse.redirect(url, { status: 303 });
 }
 
+function resolveAdminRedirectPath(formData: FormData, fallback: string) {
+  const raw = String(formData.get("redirect_to") ?? "").trim();
+  if (raw.startsWith(ADMIN_PATHS.base)) {
+    return raw;
+  }
+  return fallback;
+}
+
 export async function POST(request: Request) {
   const formData = await request.formData();
   const orderId = String(formData.get("order_id") ?? "").trim();
   const action = String(formData.get("action") ?? "").trim();
   const status = String(formData.get("status") ?? "").trim();
   const note = String(formData.get("note") ?? "").trim();
+  const redirectPath = resolveAdminRedirectPath(formData, ADMIN_PATHS.orders);
 
   if (!orderId || !action) {
-    return buildRedirect(request, ADMIN_PATHS.orders, {
+    return buildRedirect(request, redirectPath, {
       error: "Acao invalida",
     });
   }
@@ -51,7 +61,7 @@ export async function POST(request: Request) {
 
   let errorMessage: string | null = null;
   let successMessage = "Pedido atualizado";
-  let nextStatus = status || "pending";
+  const nextStatus = status || "pending";
 
   if (action === "set_status") {
     const updatePayload: Record<string, string | null> = {
@@ -91,13 +101,13 @@ export async function POST(request: Request) {
     errorMessage = error?.message ?? null;
     successMessage = "Evento registrado";
   } else {
-    return buildRedirect(request, ADMIN_PATHS.orders, {
+    return buildRedirect(request, redirectPath, {
       error: "Acao desconhecida",
     });
   }
 
   if (errorMessage) {
-    return buildRedirect(request, ADMIN_PATHS.orders, {
+    return buildRedirect(request, redirectPath, {
       error: errorMessage,
     });
   }
@@ -155,7 +165,7 @@ export async function POST(request: Request) {
     }
 
     if (notifications.length > 0) {
-      await supabase.from("notifications").insert(notifications);
+      await insertNotificationsWithPush(supabase, notifications);
     }
   }
 
@@ -167,7 +177,7 @@ export async function POST(request: Request) {
     details: { status, note },
   });
 
-  return buildRedirect(request, ADMIN_PATHS.orders, {
+  return buildRedirect(request, redirectPath, {
     success: successMessage,
   });
 }

@@ -1,9 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { FAMILIES, SUBCATEGORIES } from "@/lib/mock/data";
+import {
+  buildFamilySubcategoryPath,
+  FAMILIES,
+  SUBCATEGORIES,
+} from "@/lib/mock/data";
 import { CartButton, CepControl, NotificationsBell } from "@/components/header/client";
 import AccountSlot from "@/components/header/AccountSlot";
+import HeaderDropdown from "@/components/header/HeaderDropdown";
 
 const quickLinks = [
   { label: "Categorias", href: "/categorias" },
@@ -12,17 +17,25 @@ const quickLinks = [
   { label: "Contato", href: "/contato" },
 ];
 
-export default function DesktopHeader() {
+export default function DesktopHeader({
+  isNativeAndroidApp = false,
+}: {
+  isNativeAndroidApp?: boolean;
+}) {
   return (
-    <header className="sticky top-0 z-50 hidden w-full border-b border-zinc-200 bg-white/95 backdrop-blur md:block">
-      <div className="mx-auto flex w-full max-w-6xl items-center gap-6 px-6 py-4">
+    <header
+      className={`sticky z-50 hidden w-full border-b border-white/10 bg-zinc-950 md:block ${
+        isNativeAndroidApp ? "native-app-header top-0" : "top-0"
+      }`}
+    >
+      <div className="mx-auto flex w-full max-w-6xl items-center gap-6 px-6 py-2">
         <Link href="/" className="flex items-center gap-3">
           <Image
-            src="/ganmolslogo.png"
+            src="/logoinvertidalogo.png"
             alt="GANM OLS"
-            width={150}
-            height={40}
-            className="h-8 w-auto"
+            width={215}
+            height={67}
+            className="h-10 w-auto"
             priority
           />
         </Link>
@@ -31,7 +44,7 @@ export default function DesktopHeader() {
           method="get"
           className="relative flex w-full max-w-[540px] flex-1 items-center"
         >
-          <span className="pointer-events-none absolute left-4 text-zinc-400">
+          <span className="pointer-events-none absolute left-4 text-zinc-500">
             <svg
               className="h-4 w-4"
               viewBox="0 0 24 24"
@@ -44,13 +57,13 @@ export default function DesktopHeader() {
             </svg>
           </span>
           <input
-            className="h-12 w-full rounded-full border border-zinc-200 bg-white pl-11 pr-28 text-sm text-zinc-900 shadow-sm outline-none transition focus:border-zinc-400"
+            className="h-11 w-full rounded-full border border-white/20 bg-zinc-900 pl-11 pr-28 text-sm text-white shadow-sm outline-none transition placeholder:text-zinc-500 focus:border-white/40"
             placeholder="Buscar console, jogo, edicao, condicao..."
             name="q"
           />
           <button
             type="submit"
-            className="absolute right-2 rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white"
+            className="absolute right-2 rounded-full bg-zinc-800 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-zinc-700"
           >
             Buscar
           </button>
@@ -58,54 +71,59 @@ export default function DesktopHeader() {
         <div className="flex items-center gap-3">
           <Link
             href="/leiloes"
-            className="relative inline-flex items-center gap-2 rounded-full bg-zinc-900 px-4 py-2 text-sm font-semibold text-white"
+            className="relative inline-flex items-center gap-2 rounded-full bg-zinc-800 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-700"
           >
             Lances
           </Link>
           <Link
-            href="/vender"
-            className="text-sm font-medium text-zinc-700 hover:text-zinc-900"
+            href="/vender/comece"
+            className="text-sm font-medium text-zinc-200 hover:text-white"
           >
             Vender
           </Link>
           <Link
             href="/compras"
-            className="text-sm font-medium text-zinc-700 hover:text-zinc-900"
+            className="text-sm font-medium text-zinc-200 hover:text-white"
           >
             Compras
           </Link>
           <Link
             href="/favoritos"
-            className="text-sm font-medium text-zinc-700 hover:text-zinc-900"
+            className="text-sm font-medium text-zinc-200 hover:text-white"
           >
             Favoritos
           </Link>
-          <NotificationsBell />
-          <CartButton />
-          <AccountSlot />
+          <NotificationsBell dark />
+          <CartButton dark />
+          <AccountSlot dark />
         </div>
       </div>
-      <div className="border-t border-zinc-200 bg-white">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-6 px-6 py-3">
+      <div>
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-6 px-6 py-1.5">
           <div className="flex items-center gap-4">
-            <details className="group relative">
-              <summary className="flex cursor-pointer items-center gap-2 rounded-full border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-900 hover:border-zinc-300 hover:bg-zinc-50">
-                Categorias
-                <svg
-                  className="h-4 w-4 text-zinc-500 transition group-open:rotate-180"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                >
-                  <path
-                    d="m6 9 6 6 6-6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </summary>
-              <div className="absolute left-0 top-full mt-4 w-[760px] rounded-3xl border border-zinc-200 bg-white p-6 shadow-xl">
+            <HeaderDropdown
+              wrapperClassName="relative"
+              panelClassName="absolute left-0 top-full mt-4 w-[760px] rounded-3xl border border-zinc-200 bg-white p-6 shadow-xl"
+              trigger={
+                <span className="flex items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-zinc-100 hover:border-white/40 hover:bg-white/10">
+                  Categorias
+                  <svg
+                    className="h-4 w-4 text-zinc-300"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                  >
+                    <path
+                      d="m6 9 6 6 6-6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+              }
+            >
+              <div>
                 <div className="grid grid-cols-3 gap-6">
                   {FAMILIES.map((family) => (
                     <div key={family.slug}>
@@ -122,9 +140,7 @@ export default function DesktopHeader() {
                         {(SUBCATEGORIES[family.slug] || []).map((subcategory) => (
                           <Link
                             key={`${family.slug}-${subcategory}`}
-                            href={`/buscar?familia=${family.slug}&sub=${encodeURIComponent(
-                              subcategory.toLowerCase()
-                            )}`}
+                            href={buildFamilySubcategoryPath(family.slug, subcategory)}
                             className="rounded-full border border-zinc-200 px-2 py-1 text-[11px] text-zinc-600 hover:border-zinc-300 hover:text-zinc-900"
                           >
                             {subcategory}
@@ -135,13 +151,13 @@ export default function DesktopHeader() {
                   ))}
                 </div>
               </div>
-            </details>
+            </HeaderDropdown>
             <nav className="flex items-center gap-4">
               {quickLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="text-sm font-medium text-zinc-600 hover:text-zinc-900"
+                  className="text-sm font-medium text-zinc-300 hover:text-white"
                 >
                   {link.label}
                 </Link>
@@ -152,14 +168,14 @@ export default function DesktopHeader() {
                 <Link
                   key={family.slug}
                   href={`/marca/${family.slug}`}
-                  className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 hover:border-zinc-300 hover:text-zinc-900"
+                  className="rounded-full border border-white/20 px-3 py-1 text-xs font-medium text-zinc-200 hover:border-white/40 hover:bg-white/10 hover:text-white"
                 >
                   {family.name}
                 </Link>
               ))}
             </div>
           </div>
-          <CepControl />
+          <CepControl dark />
         </div>
       </div>
     </header>

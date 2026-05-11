@@ -5,6 +5,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 import { formatCentsToBRL } from "@/lib/utils/price";
+import {
+  queuePendingGaEvent,
+  trackGaEvent,
+} from "@/lib/analytics/googleAnalytics";
 
 type ShippingOption = {
   shipping_cost_cents: number;
@@ -75,7 +79,7 @@ export default function CartCheckoutClient() {
   }, []);
 
   useEffect(() => {
-    loadCart();
+    loadCart(); // eslint-disable-line react-hooks/set-state-in-effect
   }, [loadCart]);
 
   const fetchShipping = useCallback(async (listingId: string) => {
@@ -211,6 +215,38 @@ export default function CartCheckoutClient() {
     const shipping = shippingByListing[listing.id];
     return Boolean(shipping?.selectedServiceId);
   });
+
+  const handleBeginCheckout = useCallback(() => {
+    const gaItems = items
+      .map((item) => {
+        const listing = item.listings?.[0] ?? null;
+        if (!listing) {
+          return null;
+        }
+
+        const quantity = item.quantity ?? 1;
+        const priceCents = listing.price_cents ?? 0;
+        return {
+          item_id: listing.id,
+          item_name: listing.title ?? "Produto",
+          price: Number((priceCents / 100).toFixed(2)),
+          quantity,
+        };
+      })
+      .filter((value): value is NonNullable<typeof value> => Boolean(value));
+
+    const payload = {
+      currency: "BRL",
+      value: Number(((totals.itemsTotal + totals.shippingTotal) / 100).toFixed(2)),
+      item_count: items.reduce((sum, item) => sum + (item.quantity ?? 0), 0),
+      items: gaItems,
+    };
+
+    const sent = trackGaEvent("begin_checkout", payload);
+    if (!sent) {
+      queuePendingGaEvent("begin_checkout", payload);
+    }
+  }, [items, totals.itemsTotal, totals.shippingTotal]);
 
   if (isLoading) {
     return (
@@ -414,6 +450,7 @@ export default function CartCheckoutClient() {
       <form
         action="/api/mercadopago/preference-cart"
         method="post"
+        onSubmit={handleBeginCheckout}
         className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm"
       >
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">

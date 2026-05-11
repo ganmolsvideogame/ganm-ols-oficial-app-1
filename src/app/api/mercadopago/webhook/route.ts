@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
 
 import { createPaymentClient } from "@/lib/mercadopago/client";
+import { cancelPayment } from "@/lib/mercadopago/cancel";
 import { getMercadoPagoAccessToken } from "@/lib/mercadopago/env";
+import { refundPayment } from "@/lib/mercadopago/refund";
+import {
+  sendBrevoApprovedOrderEmails,
+  sendBrevoShippingUpdateEmails,
+} from "@/lib/brevo/order-emails";
+import { buildMetaCatalogListingId } from "@/lib/analytics/metaCatalog";
+import { sendMetaPurchaseEvent } from "@/lib/analytics/metaConversions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SELLER_POST_DAYS } from "@/lib/config/commerce";
 import {
@@ -12,6 +20,20 @@ import {
   getPrintLink,
 } from "@/lib/superfrete/api";
 import { resolvePackageDimensions } from "@/lib/shipping/presets";
+import { insertNotificationsWithPush } from "@/lib/push/delivery";
+
+function normalizeStatus(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function isCancelledOrder(row: { status?: unknown; cancel_status?: unknown }) {
+  const status = normalizeStatus(row.status);
+  return (
+    status === "cancelled" ||
+    status === "canceled" ||
+    String(row.cancel_status ?? "").trim().toLowerCase() === "approved"
+  );
+}
 
 function getPaymentId(requestUrl: string, payload: unknown) {
   const searchParams = new URL(requestUrl).searchParams;
@@ -120,6 +142,14 @@ function normalizeZipcode(value: string | null | undefined) {
   return String(value ?? "").replace(/\D/g, "");
 }
 
+function asNonEmptyString(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized ? normalized : null;
+}
+
 async function processPayment(paymentId: string, payload: unknown, admin: ReturnType<typeof createAdminClient>) {
   const paymentClient = createPaymentClient();
   let payment: {
@@ -127,6 +157,8 @@ async function processPayment(paymentId: string, payload: unknown, admin: Return
     external_reference?: string;
     preference_id?: string;
     id?: string | number;
+    metadata?: Record<string, unknown> | null;
+    order?: { id?: string | number } | null;
   };
   try {
     payment = await paymentClient.get({ id: paymentId });
@@ -134,7 +166,39 @@ async function processPayment(paymentId: string, payload: unknown, admin: Return
     return;
   }
 
-  let externalReference = payment.external_reference;
+  let externalReference = asNonEmptyString(payment.external_reference);
+  const metadata = payment.metadata ?? {};
+  if (!externalReference) {
+    const metadataOrderId = asNonEmptyString(metadata.order_id);
+    const metadataCheckoutId = asNonEmptyString(metadata.cart_checkout_id);
+    externalReference = metadataOrderId || metadataCheckoutId;
+  }
+
+  if (!externalReference) {
+    const merchantOrderId =
+      payment.order?.id !== undefined && payment.order?.id !== null
+        ? String(payment.order.id).trim()
+        : "";
+    if (merchantOrderId) {
+      const merchantOrder = await fetchMerchantOrder(merchantOrderId);
+      externalReference = asNonEmptyString(merchantOrder?.external_reference);
+      if (!externalReference) {
+        const payments = Array.isArray(merchantOrder?.payments)
+          ? merchantOrder.payments
+          : [];
+        const currentPayment = payments.find(
+          (candidate: { id?: unknown; external_reference?: unknown }) =>
+            String(candidate?.id ?? "").trim() === paymentId
+        );
+        if (currentPayment) {
+          externalReference =
+            asNonEmptyString(currentPayment.external_reference) ||
+            externalReference;
+        }
+      }
+    }
+  }
+
   if (!externalReference && payment.preference_id) {
     const { data: orderByPreference } = await admin
       .from("orders")
@@ -156,21 +220,27 @@ async function processPayment(paymentId: string, payload: unknown, admin: Return
   if (!externalReference) {
     return;
   }
-  const updatePayload: Record<string, unknown> = {
+
+  const mpPaymentId = String(payment.id ?? paymentId);
+  const mpPreferenceId = payment.preference_id ?? null;
+  const mpUpdatePayload: Record<string, unknown> = {
+    mp_payment_id: mpPaymentId,
+    mp_preference_id: mpPreferenceId,
+  };
+  const statusUpdatePayload: Record<string, unknown> = {
+    ...mpUpdatePayload,
     status: payment.status ?? "pending",
-    mp_payment_id: String(payment.id ?? paymentId),
-    mp_preference_id: payment.preference_id ?? null,
   };
   const { data: directOrder } = await admin
     .from("orders")
-    .select("id, approved_at")
+    .select("id, approved_at, status, cancel_status")
     .eq("id", externalReference)
     .maybeSingle();
   const { data: cartCheckout } = directOrder
     ? { data: null }
     : await admin
         .from("cart_checkouts")
-        .select("id, approved_at, order_ids")
+        .select("id, approved_at, order_ids, status")
         .eq("id", externalReference)
         .maybeSingle();
 
@@ -178,39 +248,69 @@ async function processPayment(paymentId: string, payload: unknown, admin: Return
     return NextResponse.json({ received: true });
   }
 
+  const orderIds = directOrder
+    ? [directOrder.id]
+    : (cartCheckout?.order_ids ?? []);
+
+  const { data: orderStatesData } = orderIds.length
+    ? await admin
+        .from("orders")
+        .select("id, status, cancel_status")
+        .in("id", orderIds)
+    : { data: [] };
+  const orderStates = orderStatesData ?? [];
+  const activeOrderIds = orderStates
+    .filter((row) => !isCancelledOrder(row))
+    .map((row) => row.id);
+  const allOrdersCancelled =
+    orderStates.length > 0 && activeOrderIds.length === 0;
+
   let shouldNotifyApproval = false;
   let approvedAt: Date | null = null;
-  if (payment.status === "approved") {
+  if (payment.status === "approved" && activeOrderIds.length > 0) {
     const alreadyApproved = directOrder
       ? Boolean(directOrder.approved_at)
       : Boolean(cartCheckout?.approved_at);
     if (!alreadyApproved) {
       approvedAt = new Date();
-      updatePayload.approved_at = approvedAt.toISOString();
-      updatePayload.payout_status = "hold";
-      updatePayload.shipping_post_deadline_at = new Date(
+      statusUpdatePayload.approved_at = approvedAt.toISOString();
+      statusUpdatePayload.payout_status = "hold";
+      statusUpdatePayload.shipping_post_deadline_at = new Date(
         approvedAt.getTime() + SELLER_POST_DAYS * 24 * 60 * 60 * 1000
       ).toISOString();
       shouldNotifyApproval = true;
     }
   }
 
-  const orderIds = directOrder
-    ? [directOrder.id]
-    : (cartCheckout?.order_ids ?? []);
-
+  // Never resurrect a previously-cancelled order because of a late webhook.
   if (orderIds.length > 0) {
-    await admin.from("orders").update(updatePayload).in("id", orderIds);
+    await admin.from("orders").update(mpUpdatePayload).in("id", orderIds);
+  }
+  if (activeOrderIds.length > 0) {
+    await admin
+      .from("orders")
+      .update(statusUpdatePayload)
+      .in("id", activeOrderIds);
   }
 
   if (cartCheckout) {
+    const currentStatus = normalizeStatus(cartCheckout.status);
+    const checkoutStatus = allOrdersCancelled
+      ? "cancelled"
+      : currentStatus === "cancelled" || currentStatus === "canceled"
+        ? cartCheckout.status
+        : payment.status ?? "pending";
+
     await admin
       .from("cart_checkouts")
       .update({
-        status: payment.status ?? "pending",
-        mp_payment_id: String(payment.id ?? paymentId),
-        mp_preference_id: payment.preference_id ?? null,
-        approved_at: approvedAt ? approvedAt.toISOString() : cartCheckout.approved_at,
+        status: checkoutStatus,
+        mp_payment_id: mpPaymentId,
+        mp_preference_id: mpPreferenceId,
+        approved_at:
+          !allOrdersCancelled && approvedAt
+            ? approvedAt.toISOString()
+            : cartCheckout.approved_at,
         updated_at: new Date().toISOString(),
       })
       .eq("id", cartCheckout.id);
@@ -220,15 +320,206 @@ async function processPayment(paymentId: string, payload: unknown, admin: Return
     ? await admin
         .from("orders")
         .select(
-          "id, buyer_user_id, seller_user_id, listing_id, shipping_service_id, shipping_status, superfrete_id, superfrete_tag_id, superfrete_status, superfrete_tracking, quantity"
+          "id, status, cancel_status, buyer_user_id, seller_user_id, listing_id, amount_cents, shipping_service_id, shipping_status, shipping_tracking, superfrete_id, superfrete_tag_id, superfrete_status, superfrete_tracking, superfrete_print_url, quantity"
         )
         .in("id", orderIds)
     : { data: [] };
   const orders = ordersData ?? [];
-  const order = orders[0] ?? null;
+
+  if (payment.status === "approved") {
+    await sendBrevoApprovedOrderEmails(
+      admin,
+      orders.map((order) => ({
+        id: order.id,
+        buyer_user_id: order.buyer_user_id,
+        seller_user_id: order.seller_user_id,
+        listing_id: order.listing_id,
+        amount_cents: order.amount_cents,
+        quantity: order.quantity,
+      }))
+    );
+  }
+
+  if (payment.status === "approved") {
+    const candidateOrders = orders.filter(
+      (row) => !isCancelledOrder(row) && Boolean(row.buyer_user_id)
+    );
+
+    if (candidateOrders.length > 0) {
+      const candidateOrderIds = candidateOrders.map((row) => row.id);
+      const { data: existingMetaEvents } = await admin
+        .from("payment_events")
+        .select("order_id")
+        .eq("provider", "meta")
+        .eq("event_type", "purchase")
+        .in("order_id", candidateOrderIds);
+
+      const alreadySent = new Set(
+        (existingMetaEvents ?? [])
+          .map((row) => row.order_id)
+          .filter((value): value is string => Boolean(value))
+      );
+
+      const pendingOrders = candidateOrders.filter(
+        (row) => !alreadySent.has(row.id)
+      );
+
+      if (pendingOrders.length > 0) {
+        const buyerIds = Array.from(
+          new Set(
+            pendingOrders
+              .map((row) => String(row.buyer_user_id ?? "").trim())
+              .filter(Boolean)
+          )
+        );
+
+        type BuyerProfile = {
+          id: string;
+          email: string | null;
+          phone: string | null;
+        };
+
+        const { data: buyerProfilesData } = buyerIds.length
+          ? await admin
+              .from("profiles")
+              .select("id, email, phone")
+              .in("id", buyerIds)
+          : { data: [] };
+
+        const buyerProfiles = (buyerProfilesData ?? []) as BuyerProfile[];
+        const buyerProfileMap = new Map(
+          buyerProfiles.map((profile) => [profile.id, profile])
+        );
+        const eventTime = approvedAt
+          ? Math.floor(approvedAt.getTime() / 1000)
+          : Math.floor(Date.now() / 1000);
+        const leadId = /^\d+$/.test(mpPaymentId) ? Number(mpPaymentId) : mpPaymentId;
+
+        for (const orderRow of pendingOrders) {
+          const buyerId = String(orderRow.buyer_user_id ?? "").trim();
+          const buyerProfile = buyerProfileMap.get(buyerId);
+          const buyerEmail = String(buyerProfile?.email ?? "")
+            .trim()
+            .toLowerCase();
+          const buyerPhone = String(buyerProfile?.phone ?? "").trim();
+
+          if (!buyerEmail) {
+            await admin.from("payment_events").insert({
+              order_id: orderRow.id,
+              provider: "meta",
+              event_type: "purchase",
+              status: "skipped",
+              payload: {
+                payment_id: mpPaymentId,
+                reason: "missing_buyer_email",
+              },
+            });
+            continue;
+          }
+
+          const quantity =
+            typeof orderRow.quantity === "number" && orderRow.quantity > 0
+              ? orderRow.quantity
+              : 1;
+          const totalValue = Number(
+            (((orderRow.amount_cents ?? 0) as number) / 100).toFixed(2)
+          );
+          const contentId = orderRow.listing_id
+            ? buildMetaCatalogListingId(orderRow.listing_id)
+            : "";
+          const itemPrice =
+            quantity > 0 ? Number((totalValue / quantity).toFixed(2)) : totalValue;
+
+          const metaResult = await sendMetaPurchaseEvent({
+            email: buyerEmail,
+            phone: buyerPhone || null,
+            leadId,
+            fbc: null,
+            eventTime,
+            eventId: `purchase_${mpPaymentId}_${orderRow.id}`,
+            eventSourceUrl: process.env.APP_BASE_URL || undefined,
+            attributionShare: "0.3",
+            value: totalValue,
+            currency: "BRL",
+            contentIds: contentId ? [contentId] : undefined,
+            contentType: "product",
+            contents: contentId
+              ? [
+                  {
+                    id: contentId,
+                    quantity,
+                    item_price: itemPrice,
+                  },
+                ]
+              : undefined,
+          });
+
+          await admin.from("payment_events").insert({
+            order_id: orderRow.id,
+            provider: "meta",
+            event_type: "purchase",
+            status: metaResult.ok
+              ? "success"
+              : metaResult.skipped
+                ? "skipped"
+                : "error",
+            payload: {
+              payment_id: mpPaymentId,
+              preference_id: mpPreferenceId,
+              event_name: "Purchase",
+              action_source: "website",
+              meta: metaResult,
+            },
+          });
+        }
+      }
+    }
+  }
+
+  const allCancelled =
+    orders.length > 0 && orders.every((row) => isCancelledOrder(row));
+  const paymentStatus = normalizeStatus(payment.status);
+
+  // If the buyer canceled before the payment got approved/finished, make sure we
+  // cancel/void (or refund) the Mercado Pago payment once we learn about it.
+  if (allCancelled && paymentStatus) {
+    const cancelableStatuses = new Set([
+      "pending",
+      "in_process",
+      "in_mediation",
+      "authorized",
+    ]);
+
+    if (paymentStatus === "approved") {
+      const refund = await refundPayment(mpPaymentId);
+      await admin.from("payment_events").insert(
+        orders.map((row) => ({
+          order_id: row.id,
+          provider: "mercadopago",
+          event_type: "refund",
+          status: refund.ok ? "success" : "error",
+          payload: refund.ok ? refund.data : { error: refund.error },
+        }))
+      );
+    } else if (cancelableStatuses.has(paymentStatus)) {
+      const cancel = await cancelPayment(mpPaymentId);
+      await admin.from("payment_events").insert(
+        orders.map((row) => ({
+          order_id: row.id,
+          provider: "mercadopago",
+          event_type: "cancel",
+          status: cancel.ok ? "success" : "error",
+          payload: cancel.ok ? cancel.data : { error: cancel.error },
+        }))
+      );
+    }
+  }
 
   if (shouldNotifyApproval) {
     for (const approvedOrder of orders) {
+      if (isCancelledOrder(approvedOrder)) {
+        continue;
+      }
       if (!approvedOrder.listing_id) {
         continue;
       }
@@ -269,6 +560,9 @@ async function processPayment(paymentId: string, payload: unknown, admin: Return
       .filter((id): id is string => Boolean(id));
 
     for (const approvedOrder of orders) {
+      if (isCancelledOrder(approvedOrder)) {
+        continue;
+      }
       const { data: listing } = approvedOrder.listing_id
         ? await admin
             .from("listings")
@@ -277,16 +571,16 @@ async function processPayment(paymentId: string, payload: unknown, admin: Return
             .maybeSingle()
         : { data: null };
       const title = listing?.title ?? "seu pedido";
-      const link = approvedOrder.listing_id
-        ? `/produto/${approvedOrder.listing_id}`
-        : null;
+      const buyerLink = `/compras/${approvedOrder.id}`;
+      const sellerLink = `/vender/vendas/${approvedOrder.id}`;
+      const adminLink = `/painel-ganm-ols/pedidos`;
 
       if (approvedOrder.buyer_user_id) {
         notifications.push({
           user_id: approvedOrder.buyer_user_id,
           title: "Pagamento aprovado",
           body: `Pagamento confirmado para ${title}.`,
-          link,
+          link: buyerLink,
           type: "orders",
         });
       }
@@ -295,7 +589,7 @@ async function processPayment(paymentId: string, payload: unknown, admin: Return
           user_id: approvedOrder.seller_user_id,
           title: "Venda aprovada",
           body: `Pagamento confirmado para ${title}.`,
-          link,
+          link: sellerLink,
           type: "orders",
         });
       }
@@ -304,19 +598,22 @@ async function processPayment(paymentId: string, payload: unknown, admin: Return
           user_id: adminId,
           title: "Pagamento aprovado",
           body: `Pagamento confirmado para ${title}.`,
-          link,
+          link: adminLink,
           type: "orders",
         });
       });
     }
 
     if (notifications.length > 0) {
-      await admin.from("notifications").insert(notifications);
+      await insertNotificationsWithPush(admin, notifications);
     }
   }
 
   if (payment.status === "approved") {
     for (const paidOrder of orders) {
+      if (isCancelledOrder(paidOrder)) {
+        continue;
+      }
       let tagId = paidOrder.superfrete_tag_id || paidOrder.superfrete_id || null;
 
       if (!tagId) {
@@ -369,6 +666,10 @@ async function processPayment(paymentId: string, payload: unknown, admin: Return
 
             const payload: Record<string, unknown> = {
               platform: "GANM OLS",
+              order: {
+                id: paidOrder.id,
+                description: listing.title,
+              },
               service: Number.isFinite(Number(serviceId))
                 ? Number(serviceId)
                 : serviceId,
@@ -455,6 +756,8 @@ async function processPayment(paymentId: string, payload: unknown, admin: Return
             .from("orders")
             .update({
               superfrete_status: "error",
+              superfrete_tracking: null,
+              superfrete_print_url: null,
               superfrete_last_error: message,
               superfrete_raw_cart: { error: message },
             })
@@ -470,14 +773,31 @@ async function processPayment(paymentId: string, payload: unknown, admin: Return
           try {
             await checkoutLabel({ id: tagId });
             const info = await getOrderInfo(tagId);
-            const printLink = await getPrintLink(tagId);
-            const printUrl = printLink.url || info.printUrl;
+            const canPrint =
+              String(info.status ?? "").toLowerCase() === "released" ||
+              Boolean(info.tracking);
+            const printLink = canPrint ? await getPrintLink(tagId) : null;
+            const printUrl = canPrint
+              ? printLink?.url || info.printUrl || null
+              : null;
+            const trackingCode = info.tracking || null;
+            const currentShippingStatus = String(
+              paidOrder.shipping_status ?? ""
+            ).toLowerCase();
+            const nextShippingStatus =
+              currentShippingStatus === "delivered"
+                ? paidOrder.shipping_status ?? "delivered"
+                : trackingCode
+                  ? "shipped"
+                  : paidOrder.shipping_status ?? "pending";
             await admin
               .from("orders")
               .update({
-                superfrete_status: info.status ?? "released",
+                superfrete_status: info.status ?? (canPrint ? "released" : "pending"),
                 superfrete_tracking: info.tracking,
                 superfrete_print_url: printUrl,
+                shipping_tracking: trackingCode,
+                shipping_status: nextShippingStatus,
                 superfrete_raw_info: info.raw,
                 shipping_paid_at: new Date().toISOString(),
                 superfrete_last_error: null,
@@ -494,6 +814,8 @@ async function processPayment(paymentId: string, payload: unknown, admin: Return
               .from("orders")
               .update({
                 superfrete_status: nextStatus,
+                superfrete_tracking: null,
+                superfrete_print_url: null,
                 superfrete_raw_info: { error: message },
                 superfrete_last_error: message,
               })
@@ -504,6 +826,17 @@ async function processPayment(paymentId: string, payload: unknown, admin: Return
     }
   }
 
+  if (payment.status === "approved" && orderIds.length > 0) {
+    const { data: refreshedOrdersData } = await admin
+      .from("orders")
+      .select(
+        "id, buyer_user_id, seller_user_id, listing_id, shipping_status, shipping_tracking, superfrete_id, superfrete_status, superfrete_tracking, superfrete_print_url"
+      )
+      .in("id", orderIds);
+
+    await sendBrevoShippingUpdateEmails(admin, refreshedOrdersData ?? []);
+  }
+
   const cancelStatuses = new Set([
     "refunded",
     "cancelled",
@@ -511,7 +844,7 @@ async function processPayment(paymentId: string, payload: unknown, admin: Return
     "charged_back",
   ]);
 
-  if (payment.status && cancelStatuses.has(payment.status)) {
+  if (paymentStatus && cancelStatuses.has(paymentStatus)) {
     for (const canceledOrder of orders) {
       const tagId = canceledOrder.superfrete_tag_id || canceledOrder.superfrete_id;
       const shippingBlocked =
@@ -535,6 +868,8 @@ async function processPayment(paymentId: string, payload: unknown, admin: Return
             .from("orders")
             .update({
               superfrete_status: result.status ?? "cancelled",
+              superfrete_tracking: null,
+              superfrete_print_url: null,
               shipping_canceled_at: new Date().toISOString(),
               shipping_cancel_failed: false,
               shipping_manual_action: false,

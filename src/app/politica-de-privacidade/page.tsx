@@ -37,10 +37,10 @@ export default function Page() {
       </section>
 
       <Link
-        href="/contato"
+        href="/excluir-conta"
         className="inline-flex rounded-full border border-zinc-200 px-6 py-3 text-sm font-semibold text-zinc-700"
       >
-        Falar com o suporte
+        Solicitar exclusao da conta
       </Link>
     </div>
   );

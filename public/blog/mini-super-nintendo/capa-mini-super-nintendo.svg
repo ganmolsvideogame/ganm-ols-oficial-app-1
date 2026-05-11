@@ -1,0 +1,32 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="900" fill="#F5F5F5"/>
+  <rect x="56" y="56" width="1488" height="788" rx="40" fill="url(#bg)"/>
+  <circle cx="1280" cy="188" r="148" fill="#E5E7EB" fill-opacity="0.9"/>
+  <circle cx="1364" cy="724" r="176" fill="#D4D4D8" fill-opacity="0.55"/>
+  <circle cx="1112" cy="640" r="92" fill="#18181B" fill-opacity="0.08"/>
+  <rect x="128" y="148" width="296" height="296" rx="42" fill="#D4D4D8"/>
+  <rect x="158" y="176" width="236" height="178" rx="24" fill="#A1A1AA"/>
+  <rect x="190" y="390" width="172" height="26" rx="13" fill="#71717A"/>
+  <circle cx="214" cy="515" r="26" fill="#52525B"/>
+  <circle cx="308" cy="515" r="26" fill="#52525B"/>
+  <circle cx="257" cy="574" r="18" fill="#71717A"/>
+  <circle cx="334" cy="574" r="18" fill="#71717A"/>
+  <path d="M218 515H257M237.5 495.5V534.5" stroke="#E4E4E7" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="592" cy="168" r="7" fill="#52525B"/>
+  <text x="592" y="208" fill="#3F3F46" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700" letter-spacing="0.28em">BLOG GANM OLS</text>
+  <text x="592" y="328" fill="#18181B" font-family="Arial, Helvetica, sans-serif" font-size="82" font-weight="700">
+    <tspan x="592" dy="0">Mini Super Nintendo:</tspan>
+    <tspan x="592" dy="96">nostalgia, hardware e</tspan>
+    <tspan x="592" dy="96">maneiras legais de</tspan>
+    <tspan x="592" dy="96">reviver clássicos</tspan>
+  </text>
+  <text x="592" y="756" fill="#52525B" font-family="Arial, Helvetica, sans-serif" font-size="36">
+    Console mini oficial da Nintendo, nostalgia legal e hardware clássico em foco
+  </text>
+  <defs>
+    <linearGradient id="bg" x1="56" y1="56" x2="1544" y2="844" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FAFAFA"/>
+      <stop offset="1" stop-color="#E4E4E7"/>
+    </linearGradient>
+  </defs>
+</svg>

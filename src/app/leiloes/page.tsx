@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { buildListingPath } from "@/lib/listings/url";
 import { formatCentsToBRL } from "@/lib/utils/price";
 import { closeExpiredAuctions } from "@/lib/auctions";
 import {
@@ -30,7 +31,7 @@ export default async function Page() {
     .select(
       "id, title, price_cents, platform, family, created_at, auction_increment_percent, auction_end_at, thumbnail_url"
     )
-    .in("status", ["active", "paused"])
+    .eq("status", "active")
     .or("moderation_status.eq.approved,moderation_status.eq.pending,moderation_status.is.null")
     .eq("listing_type", "auction")
     .order("boost_priority", { ascending: false })
@@ -89,7 +90,7 @@ export default async function Page() {
           </p>
         </div>
         <Link
-          href="/vender"
+          href="/vender/comece"
           className="rounded-full bg-zinc-900 px-5 py-2 text-xs font-semibold text-white"
         >
           Quero listar em lances
@@ -180,7 +181,7 @@ export default async function Page() {
                     Receber alerta
                   </Link>
                   <Link
-                    href={`/produto/${auction.id}`}
+                    href={buildListingPath(auction.id, auction.title)}
                     className="rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700"
                   >
                     Ver detalhes

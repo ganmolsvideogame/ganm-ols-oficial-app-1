@@ -1,6 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRef } from "react";
+
+import useCartCount from "@/components/cart/useCartCount";
+
+type QuickAccessVariant = "grid" | "overlay";
 
 const QUICK_LINKS = [
   {
@@ -75,9 +80,106 @@ const QUICK_LINKS = [
       </svg>
     ),
   },
+  {
+    title: "Atendimento",
+    description: "Tire duvidas com o time GANM OLS.",
+    cta: "Falar agora",
+    href: "/contato",
+    icon: (
+      <svg viewBox="0 0 48 48" aria-hidden="true" className="h-8 w-8">
+        <path
+          d="M10 16a10 10 0 0 1 10-10h8a10 10 0 0 1 10 10v10a10 10 0 0 1-10 10H22l-8 6v-6a10 10 0 0 1-4-8z"
+          className="fill-none stroke-current stroke-[2.5]"
+          strokeLinejoin="round"
+        />
+        <path d="M18 22h12" className="fill-none stroke-current stroke-[2.5]" strokeLinecap="round" />
+        <path d="M18 28h8" className="fill-none stroke-current stroke-[2.5]" strokeLinecap="round" />
+      </svg>
+    ),
+  },
 ];
 
-export default function QuickAccess() {
+export default function QuickAccess({ variant = "grid" }: { variant?: QuickAccessVariant }) {
+  const cartCount = useCartCount();
+  const railRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollBy = (dir: -1 | 1) => {
+    const el = railRef.current;
+    if (!el) return;
+    const amount = Math.floor(el.clientWidth * 0.9) * dir;
+    el.scrollBy({ left: amount, behavior: "smooth" });
+  };
+
+  if (variant === "overlay") {
+    return (
+      <div className="relative">
+        <div
+          ref={railRef}
+          className="flex gap-3 overflow-x-auto scroll-smooth pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {cartCount > 0 ? (
+            <article className="ml-tile flex min-h-[190px] min-w-[260px] flex-col justify-between p-4 sm:min-w-[300px]">
+              <div>
+                <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-800">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" className="h-6 w-6">
+                    <path
+                      d="M6 6h15l-1.5 9H7.5L6 3H3"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <circle cx="9" cy="20" r="1.6" fill="currentColor" />
+                    <circle cx="18" cy="20" r="1.6" fill="currentColor" />
+                  </svg>
+                </div>
+                <h3 className="text-sm font-semibold">Compre do seu carrinho</h3>
+                <p className="mt-1 text-xs text-zinc-600">
+                  Voce tem {cartCount} {cartCount === 1 ? "item" : "itens"} aguardando checkout.
+                </p>
+              </div>
+              <Link href="/checkout/carrinho" className="ml-btn ml-btn-primary w-full">
+                Continuar pedido
+              </Link>
+            </article>
+          ) : null}
+
+          {QUICK_LINKS.map((item) => (
+            <article
+              key={item.title}
+              className="ml-tile flex min-h-[190px] min-w-[240px] flex-col justify-between p-4 sm:min-w-[270px]"
+            >
+              <div>
+                <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-800">
+                  {item.icon}
+                </div>
+                <h3 className="text-sm font-semibold">{item.title}</h3>
+                <p className="mt-1 text-xs text-zinc-600">{item.description}</p>
+              </div>
+              <Link href={item.href} className="ml-btn w-full">
+                {item.cta}
+              </Link>
+            </article>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          className="ml-arrow left"
+          aria-label="Voltar"
+          onClick={() => scrollBy(-1)}
+        />
+        <button
+          type="button"
+          className="ml-arrow right"
+          aria-label="Avancar"
+          onClick={() => scrollBy(1)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
       {QUICK_LINKS.map((item) => (
