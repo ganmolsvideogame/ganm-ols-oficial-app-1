@@ -3,9 +3,10 @@ import {
   analyzeCatalogAiProducts,
   type CatalogAiProductInput,
 } from "@/lib/admin/catalog-ai";
-import { requireAdmin } from "@/lib/admin/require-admin";
-import { listAffiliateProducts } from "@/lib/affiliate/catalog";
-import { buildAffiliateProductPath } from "@/lib/affiliate/products";
+import { ADMIN_PATHS } from "@/lib/config/admin";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -19,9 +20,76 @@ type ListingRow = {
   thumbnail_url: string | null;
 };
 
+type StoredAffiliateProduct = {
+  slug?: string;
+  title?: string;
+  description?: string;
+  about?: string[];
+  bullets?: string[];
+  details?: Array<{ label?: string; value?: string }>;
+  priceCents?: number;
+  brand?: string;
+  categoryLabel?: string;
+  externalUrl?: string;
+  images?: string[];
+  ratingNote?: string | null;
+  reviewCountLabel?: string | null;
+};
+
+async function requireAdmin() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect(
+      `${ADMIN_PATHS.login}?error=${encodeURIComponent(
+        "Faca login para acessar o admin"
+      )}`
+    );
+  }
+
+  const { data: adminCheck, error: adminError } = await supabase.rpc("is_admin");
+  if (adminError || adminCheck !== true) {
+    redirect(
+      `${ADMIN_PATHS.login}?error=${encodeURIComponent(
+        "Sem permissao para acessar o admin"
+      )}`
+    );
+  }
+
+  return { supabase };
+}
+
+function isStoredAffiliateProduct(value: unknown): value is StoredAffiliateProduct {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+async function loadStoredAffiliateProducts() {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("site_settings")
+    .select("value")
+    .eq("key", "affiliate_imported_products_v1")
+    .maybeSingle();
+
+  const raw = String(data?.value ?? "").trim();
+  if (!raw) {
+    return [] as StoredAffiliateProduct[];
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed.filter(isStoredAffiliateProduct) : [];
+  } catch {
+    return [] as StoredAffiliateProduct[];
+  }
+}
+
 export default async function Page() {
   const { supabase } = await requireAdmin();
-  const affiliateProducts = await listAffiliateProducts({ includeInactive: true });
+  const affiliateProducts = await loadStoredAffiliateProducts();
 
   const { data: listingsData } = await supabase
     .from("listings")
@@ -45,21 +113,21 @@ export default async function Page() {
 
   const affiliateInputs = affiliateProducts.map(
     (product): CatalogAiProductInput => ({
-      id: product.slug,
+      id: product.slug ?? product.title ?? "affiliate",
       sourceType: "affiliate",
-      title: product.title,
+      title: product.title ?? "",
       description: [
-        product.description,
-        ...product.about,
-        ...product.bullets,
-        ...product.details.map((detail) => `${detail.label}: ${detail.value}`),
+        product.description ?? "",
+        ...(product.about ?? []),
+        ...(product.bullets ?? []),
+        ...(product.details ?? []).map((detail) => `${detail.label ?? ""}: ${detail.value ?? ""}`),
       ].join("\n"),
-      priceCents: product.priceCents,
-      platform: product.brand,
-      category: product.categoryLabel,
-      sourceUrl: buildAffiliateProductPath(product.slug),
+      priceCents: product.priceCents ?? null,
+      platform: product.brand ?? "",
+      category: product.categoryLabel ?? "",
+      sourceUrl: product.slug ? `/parceiros/${encodeURIComponent(product.slug)}` : null,
       affiliateUrl: product.externalUrl,
-      images: product.images,
+      images: product.images ?? [],
       sellerRating: product.ratingNote ?? product.reviewCountLabel,
     })
   );
