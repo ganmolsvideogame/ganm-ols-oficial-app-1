@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type MouseEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import {
   FAMILIES,
@@ -9,6 +10,8 @@ import {
   buildFamilySubcategoryPath,
 } from "@/lib/mock/data";
 import type { AffiliateProduct } from "@/lib/affiliate/products";
+import { notifyCartCount } from "@/lib/cart/events";
+import { createClient } from "@/lib/supabase/client";
 
 export type MobileHomeBanner = {
   id: string;
@@ -30,8 +33,11 @@ export type MobileHomeListing = {
 
 type DisplayProduct = {
   key: string;
+  kind: "affiliate" | "listing";
+  listingId?: string;
   title: string;
   href: string;
+  cartHref?: string;
   imageUrl: string;
   priceCents: number | null;
   badge?: string | null;
@@ -53,6 +59,16 @@ const visibleFamilies = FAMILIES.filter((family) =>
 );
 
 const tabs = [{ slug: "all", name: "Tudo" }, ...visibleFamilies];
+
+const quickActions = [
+  { href: "/ofertas", label: "Ofertas", icon: "tag" },
+  { href: "/lojas", label: "Lojas oficiais", icon: "store" },
+  { href: "/mais-vendidos", label: "Mais vendidos", icon: "star" },
+  { href: "/ofertas/ate-100", label: "Ate R$100", icon: "coin" },
+  { href: "/categorias", label: "Categorias", icon: "grid" },
+  { href: "/vender/comece", label: "Vender", icon: "seller" },
+  { href: "/favoritos", label: "Favoritos", icon: "heart" },
+];
 
 const categoryAliases: Record<string, string[]> = {
   nintendo: [
@@ -105,13 +121,13 @@ const heroCopy: Record<
   }
 > = {
   all: {
-    eyebrow: "GANM OLS",
-    title: "Games, ofertas e classicos para garimpar agora",
+    eyebrow: "Vitrine GANM OLS",
+    title: "Consoles, jogos e acessorios em destaque",
     subtitle:
       "Consoles, jogos e acessorios organizados por universo para comprar, vender e colecionar.",
-    cta: "Explorar vitrine",
+    cta: "Ver ofertas",
     href: "/ofertas",
-    sectionTitle: "Achadinhos gamer",
+    sectionTitle: "Produtos em destaque",
     gradient: "from-zinc-950 via-zinc-900 to-slate-800",
   },
   nintendo: {
@@ -156,9 +172,9 @@ const heroCopy: Record<
   },
   atari: {
     eyebrow: "Atari",
-    title: "O inicio da colecao retro em formato de vitrine",
+    title: "Atari, cartuchos e consoles classicos",
     subtitle:
-      "Consoles, cartuchos e itens com apelo historico para quem curte videogame raiz.",
+      "Produtos Atari para quem procura consoles classicos e itens de colecao.",
     cta: "Ver Atari",
     href: "/marca/atari",
     sectionTitle: "Atari em destaque",
@@ -223,18 +239,110 @@ function matchesCategory(product: DisplayProduct, categorySlug: string) {
   );
 }
 
+function CartPlusIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
+      <path
+        d="M6 6h15l-1.5 8.5H7.5L6 3H3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M10 11h5M12.5 8.5v5" strokeLinecap="round" />
+      <circle cx="9" cy="20" r="1.5" />
+      <circle cx="18" cy="20" r="1.5" />
+    </svg>
+  );
+}
+
+function QuickActionIcon({
+  type,
+  className,
+}: {
+  type: string;
+  className?: string;
+}) {
+  if (type === "store") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M4 10h16l-1-5H5l-1 5Z" strokeLinejoin="round" />
+        <path d="M6 10v9h12v-9M9 19v-5h6v5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (type === "star") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.1L12 17.2 6.5 20.1l1-6.1L3 9.6l6.2-.9L12 3Z" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (type === "coin") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <circle cx="12" cy="12" r="8" />
+        <path d="M12 7v10M9.5 9.5c.5-.9 1.5-1.4 2.7-1.3 1.4.1 2.3.8 2.3 1.9 0 2.7-5 1.3-5 4 0 1.1 1 1.8 2.4 1.9 1.2.1 2.3-.4 2.8-1.4" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (type === "grid") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" />
+      </svg>
+    );
+  }
+
+  if (type === "seller") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-7 8a7 7 0 0 1 14 0" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M18 7h4M20 5v4" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (type === "heart") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 12 12 4h8v8l-8 8-8-8Z" strokeLinejoin="round" />
+      <circle cx="16" cy="8" r="1.4" />
+    </svg>
+  );
+}
+
 export default function MobileHomeExperience({
   banners,
   affiliateProducts,
   listings,
 }: MobileHomeExperienceProps) {
+  const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
   const [activeTab, setActiveTab] = useState("all");
+  const [quickCartKey, setQuickCartKey] = useState<string | null>(null);
 
   const displayProducts = useMemo<DisplayProduct[]>(() => {
     const affiliateItems = affiliateProducts.map((product) => ({
       key: `affiliate-${product.slug}`,
+      kind: "affiliate" as const,
       title: product.shortTitle || product.title,
       href: `/parceiros/${product.slug}`,
+      cartHref: `/parceiros/${product.slug}/comprar?source=mobile_card_cart`,
       imageUrl: product.images?.[0] ?? "",
       priceCents: product.priceCents,
       badge: product.discountLabel || product.homeBadge || product.highlightLabel,
@@ -254,6 +362,8 @@ export default function MobileHomeExperience({
 
     const listingItems = listings.map((listing) => ({
       key: `listing-${listing.id}`,
+      kind: "listing" as const,
+      listingId: listing.id,
       title: listing.title,
       href: listing.href,
       imageUrl: listing.imageUrl ?? "",
@@ -268,6 +378,99 @@ export default function MobileHomeExperience({
 
     return [...affiliateItems, ...listingItems].filter((product) => product.title);
   }, [affiliateProducts, listings]);
+
+  const handleListingCartClick = async (
+    event: MouseEvent<HTMLButtonElement>,
+    product: DisplayProduct
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!product.listingId || quickCartKey) {
+      return;
+    }
+
+    setQuickCartKey(product.key);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push(`/entrar?redirect_to=${encodeURIComponent(product.href)}`);
+      setQuickCartKey(null);
+      return;
+    }
+
+    const { data: cart, error: cartError } = await supabase
+      .from("carts")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (cartError) {
+      setQuickCartKey(null);
+      return;
+    }
+
+    let cartId = cart?.id ?? null;
+    if (!cartId) {
+      const { data: newCart, error: createError } = await supabase
+        .from("carts")
+        .insert({ user_id: user.id })
+        .select("id")
+        .single();
+
+      if (createError || !newCart?.id) {
+        setQuickCartKey(null);
+        return;
+      }
+      cartId = newCart.id;
+    }
+
+    const { data: existingItem } = await supabase
+      .from("cart_items")
+      .select("id, quantity")
+      .eq("cart_id", cartId)
+      .eq("listing_id", product.listingId)
+      .maybeSingle();
+
+    if (existingItem?.id) {
+      await supabase
+        .from("cart_items")
+        .update({
+          quantity: Math.max(1, (existingItem.quantity ?? 0) + 1),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingItem.id);
+    } else {
+      await supabase.from("cart_items").insert({
+        cart_id: cartId,
+        listing_id: product.listingId,
+        quantity: 1,
+      });
+    }
+
+    await supabase
+      .from("carts")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", cartId);
+
+    await fetch("/api/notifications/cart-add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ listing_id: product.listingId }),
+    }).catch(() => null);
+
+    const { data: items } = await supabase
+      .from("cart_items")
+      .select("quantity")
+      .eq("cart_id", cartId);
+    const nextCount =
+      items?.reduce((sum, item) => sum + (item.quantity ?? 0), 0) ?? 0;
+    notifyCartCount(nextCount);
+    setQuickCartKey(null);
+  };
 
   const activeHero = heroCopy[activeTab] ?? heroCopy.all;
   const filteredProducts = displayProducts.filter((product) =>
@@ -395,9 +598,34 @@ export default function MobileHomeExperience({
           href={activeHero.href}
           className="text-sm font-semibold text-zinc-700 underline-offset-4 hover:underline"
         >
-          Ver categoria {activeTab === "all" ? "completa" : activeHero.eyebrow}
+          {activeTab === "all"
+            ? "Ver ofertas da GANM OLS"
+            : `Ver categoria ${activeHero.eyebrow}`}
         </Link>
       </div>
+
+      {activeTab === "all" ? (
+        <section className="bg-white py-4">
+          <div className="overflow-x-auto px-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex min-w-max gap-3">
+              {quickActions.map((action) => (
+                <Link
+                  key={action.href}
+                  href={action.href}
+                  className="flex w-[112px] shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 py-4 text-center shadow-sm"
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-950 text-white">
+                    <QuickActionIcon type={action.icon} className="h-5 w-5" />
+                  </span>
+                  <span className="text-xs font-black leading-tight text-zinc-950">
+                    {action.label}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <section className="bg-white py-5">
         <div className="overflow-x-auto px-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -428,7 +656,7 @@ export default function MobileHomeExperience({
         <div className="mb-4 flex items-end justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
-              Vitrine mobile
+              Selecionados
             </p>
             <h2 className="mt-1 text-2xl font-black tracking-tight text-zinc-950">
               {activeHero.sectionTitle}
@@ -441,35 +669,56 @@ export default function MobileHomeExperience({
 
         <div className="grid grid-cols-2 gap-3">
           {visibleProducts.map((product) => (
-            <Link
+            <article
               key={product.key}
-              href={product.href}
-              className="group overflow-hidden rounded-[1.35rem] border border-zinc-200 bg-white shadow-sm"
+              className="group relative overflow-hidden rounded-[1.35rem] border border-zinc-200 bg-white shadow-sm"
             >
-              <div className="flex aspect-[0.92] items-center justify-center bg-zinc-50 p-3">
-                <img
-                  src={getProductImage(product)}
-                  alt={product.title}
-                  className="max-h-full max-w-full object-contain transition duration-300 group-hover:scale-105"
-                />
-              </div>
-              <div className="space-y-1 p-3">
-                {product.badge ? (
-                  <span className="inline-flex rounded-full bg-zinc-950 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white">
-                    {product.badge}
-                  </span>
-                ) : null}
-                <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-5 text-zinc-950">
-                  {product.title}
-                </h3>
-                <p className="text-base font-black text-zinc-950">
-                  {formatPrice(product.priceCents)}
-                </p>
-                {product.meta ? (
-                  <p className="line-clamp-1 text-xs text-zinc-500">{product.meta}</p>
-                ) : null}
-              </div>
-            </Link>
+              <Link href={product.href} className="block">
+                <div className="flex aspect-[0.92] items-center justify-center bg-zinc-50 p-3">
+                  <img
+                    src={getProductImage(product)}
+                    alt={product.title}
+                    className="max-h-full max-w-full object-contain transition duration-300 group-hover:scale-105"
+                  />
+                </div>
+                <div className="space-y-1 p-3">
+                  {product.badge ? (
+                    <span className="inline-flex rounded-full bg-zinc-950 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white">
+                      {product.badge}
+                    </span>
+                  ) : null}
+                  <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-5 text-zinc-950">
+                    {product.title}
+                  </h3>
+                  <p className="text-base font-black text-zinc-950">
+                    {formatPrice(product.priceCents)}
+                  </p>
+                  {product.meta ? (
+                    <p className="line-clamp-1 text-xs text-zinc-500">{product.meta}</p>
+                  ) : null}
+                </div>
+              </Link>
+              {product.cartHref ? (
+                <Link
+                  href={product.cartHref}
+                  aria-label={`Comprar ${product.title}`}
+                  onClick={(event) => event.stopPropagation()}
+                  className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full bg-white text-zinc-950 shadow-md ring-1 ring-zinc-200"
+                >
+                  <CartPlusIcon className="h-5 w-5" />
+                </Link>
+              ) : product.listingId ? (
+                <button
+                  type="button"
+                  aria-label={`Adicionar ${product.title} ao carrinho`}
+                  disabled={quickCartKey === product.key}
+                  onClick={(event) => handleListingCartClick(event, product)}
+                  className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full bg-white text-zinc-950 shadow-md ring-1 ring-zinc-200 disabled:opacity-60"
+                >
+                  <CartPlusIcon className="h-5 w-5" />
+                </button>
+              ) : null}
+            </article>
           ))}
         </div>
       </section>

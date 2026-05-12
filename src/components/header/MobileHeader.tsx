@@ -1,6 +1,3 @@
-import Image from "next/image";
-import Link from "next/link";
-
 import { CartButton, CepControl, NotificationsBell } from "@/components/header/client";
 import AccountSlot from "@/components/header/AccountSlot";
 
@@ -17,20 +14,7 @@ export default function MobileHeader({
     >
       <div className="bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.14),transparent_34%),linear-gradient(135deg,#050505,#18181b_58%,#0a0a0a)]">
         <div className="flex items-center gap-2 px-4 pb-3 pt-3">
-          <Link
-            href="/"
-            aria-label="GANM OLS"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white shadow-sm"
-          >
-            <Image
-              src="/ganmosicon-removebg-preview.png"
-              alt="GANM OLS"
-              width={38}
-              height={38}
-              className="h-8 w-8 object-contain"
-              priority
-            />
-          </Link>
+          <AccountSlot avatarOnly dark />
           <form action="/buscar" method="get" className="relative min-w-0 flex-1">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500">
               <svg
@@ -55,9 +39,8 @@ export default function MobileHeader({
             <CartButton compact dark />
           </div>
         </div>
-        <div className="flex items-center justify-between gap-3 px-4 pb-3">
+        <div className="flex items-center gap-3 px-4 pb-3">
           <CepControl compact dark />
-          <AccountSlot compact dark />
         </div>
       </div>
     </header>
