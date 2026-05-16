@@ -6,6 +6,10 @@ import { requireAdmin } from "@/lib/admin/require-admin";
 import { loadSellerFunnelSnapshot } from "@/lib/admin/seller-funnel";
 import { ADMIN_PATHS } from "@/lib/config/admin";
 import { loadPushAudienceStats } from "@/lib/push/campaigns";
+import {
+  isNotificationAiConfigured,
+  loadSmartPushOpportunities,
+} from "@/lib/push/intelligence";
 import { formatCentsToBRL } from "@/lib/utils/price";
 
 export const dynamic = "force-dynamic";
@@ -181,6 +185,23 @@ function describePushLog(log: PushAuditLogRow) {
     };
   }
 
+  if (log.action === "push_smart_campaign_sent") {
+    return {
+      title: title || "Campanha inteligente",
+      detail: [
+        audienceLabel ? `Publico: ${audienceLabel}` : null,
+        `Contas alvo: ${recipients}`,
+        `Push web: ${sent}`,
+        `Push app: ${nativeDelivered}`,
+        `Internas: ${inAppCount}`,
+        `Emails: ${emailRecipients}`,
+      ]
+        .filter(Boolean)
+        .join(" | "),
+      url,
+    };
+  }
+
   if (log.action === "push_test_sent") {
     return {
       title: title || "Teste push",
@@ -270,10 +291,18 @@ export default async function Page({ searchParams }: PageProps) {
   const resolvedSearchParams = await Promise.resolve(searchParams);
   const { supabase } = await requireAdmin();
 
-  const [audienceStats, sellerFunnel, affiliateProducts, { data: listingsData }, { data: auditLogData }] = await Promise.all([
+  const [
+    audienceStats,
+    sellerFunnel,
+    affiliateProducts,
+    smartOpportunities,
+    { data: listingsData },
+    { data: auditLogData },
+  ] = await Promise.all([
     loadPushAudienceStats(),
     loadSellerFunnelSnapshot(),
     listAffiliateProducts({ includeInactive: true }),
+    loadSmartPushOpportunities(),
     supabase
       .from("listings")
       .select(
@@ -289,6 +318,7 @@ export default async function Page({ searchParams }: PageProps) {
         "push_test_sent",
         "push_campaign_sent",
         "push_offer_campaign_sent",
+        "push_smart_campaign_sent",
         "push_blog_campaign_sent",
       ])
       .order("created_at", { ascending: false })
@@ -347,6 +377,7 @@ export default async function Page({ searchParams }: PageProps) {
 
   const catalogOffers = [...listingOffers, ...affiliateOffers] satisfies CatalogOfferOption[];
   const auditLogs = (auditLogData ?? []) as PushAuditLogRow[];
+  const aiConfigured = isNotificationAiConfigured();
 
   return (
     <main className="space-y-8">
@@ -426,6 +457,106 @@ export default async function Page({ searchParams }: PageProps) {
             </form>
           </div>
         ))}
+      </section>
+
+      <section className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+              Inteligencia
+            </p>
+            <h3 className="mt-2 text-lg font-semibold text-zinc-900">
+              Proximas campanhas recomendadas
+            </h3>
+            <p className="mt-2 max-w-3xl text-sm text-zinc-600">
+              O motor analisa visitas, cliques em comprar, carrinho, recomendacoes
+              e downsell dos ultimos 30 dias para sugerir qual oferta merece push,
+              para qual publico e por qual motivo.
+            </p>
+          </div>
+          <span
+            className={`rounded-full border px-4 py-2 text-xs font-semibold ${
+              aiConfigured
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-amber-200 bg-amber-50 text-amber-800"
+            }`}
+          >
+            {aiConfigured
+              ? "Copy generativa ativa"
+              : "Motor inteligente ativo | copy por regra"}
+          </span>
+        </div>
+
+        <div className="mt-6 grid gap-4 xl:grid-cols-3">
+          {smartOpportunities.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-zinc-200 bg-zinc-50 p-5 text-sm text-zinc-500 xl:col-span-3">
+              Ainda nao ha sinal recente suficiente para recomendar uma campanha.
+            </div>
+          ) : (
+            smartOpportunities.slice(0, 3).map((opportunity) => (
+              <article
+                key={opportunity.selection}
+                className="rounded-3xl border border-zinc-200 bg-zinc-50 p-5"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
+                      Score {opportunity.score}
+                    </p>
+                    <h4 className="mt-2 text-base font-semibold text-zinc-900">
+                      {opportunity.productLabel}
+                    </h4>
+                  </div>
+                  {opportunity.image ? (
+                    <img
+                      src={opportunity.image}
+                      alt=""
+                      className="h-14 w-14 rounded-2xl border border-zinc-200 bg-white object-contain p-1"
+                    />
+                  ) : null}
+                </div>
+
+                <p className="mt-3 text-sm text-zinc-600">{opportunity.reason}</p>
+
+                <div className="mt-4 grid gap-2 text-xs text-zinc-600">
+                  <span className="rounded-full bg-white px-3 py-1.5">
+                    Publico: {opportunity.audienceLabel}
+                  </span>
+                  <span className="rounded-full bg-white px-3 py-1.5">
+                    Filtro: {opportunity.productSignalLabel}
+                  </span>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-4">
+                  <p className="text-sm font-semibold text-zinc-900">
+                    {opportunity.title}
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-600">{opportunity.body}</p>
+                </div>
+
+                <form action="/api/admin/push" method="post" className="mt-4">
+                  <input
+                    type="hidden"
+                    name="action"
+                    value="send_smart_offer_campaign"
+                  />
+                  <input type="hidden" name="redirect_to" value={ADMIN_PATHS.push} />
+                  <input
+                    type="hidden"
+                    name="selection"
+                    value={opportunity.selection}
+                  />
+                  <button
+                    type="submit"
+                    className="w-full rounded-full bg-zinc-900 px-5 py-3 text-sm font-semibold text-white"
+                  >
+                    Enviar recomendacao
+                  </button>
+                </form>
+              </article>
+            ))
+          )}
+        </div>
       </section>
 
       <section className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">

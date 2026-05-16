@@ -37,7 +37,6 @@ type DisplayProduct = {
   listingId?: string;
   title: string;
   href: string;
-  cartHref?: string;
   imageUrl: string;
   priceCents: number | null;
   badge?: string | null;
@@ -249,13 +248,33 @@ function CartPlusIcon({ className }: { className?: string }) {
       strokeWidth="1.8"
     >
       <path
-        d="M6 6h15l-1.5 8.5H7.5L6 3H3"
+        d="M5.5 5.5h15l-1.5 9H8L6.5 3H3"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path d="M10 11h5M12.5 8.5v5" strokeLinecap="round" />
+      <path d="M12.5 8v5.5M9.75 10.75h5.5" strokeLinecap="round" />
       <circle cx="9" cy="20" r="1.5" />
       <circle cx="18" cy="20" r="1.5" />
+    </svg>
+  );
+}
+
+function OpenOfferIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
+      <path d="M14 5h5v5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M10 14 19 5" strokeLinecap="round" />
+      <path
+        d="M19 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -342,7 +361,6 @@ export default function MobileHomeExperience({
       kind: "affiliate" as const,
       title: product.shortTitle || product.title,
       href: `/parceiros/${product.slug}`,
-      cartHref: `/parceiros/${product.slug}/comprar?source=mobile_card_cart`,
       imageUrl: product.images?.[0] ?? "",
       priceCents: product.priceCents,
       badge: product.discountLabel || product.homeBadge || product.highlightLabel,
@@ -376,7 +394,7 @@ export default function MobileHomeExperience({
         .join(" "),
     }));
 
-    return [...affiliateItems, ...listingItems].filter((product) => product.title);
+    return [...listingItems, ...affiliateItems].filter((product) => product.title);
   }, [affiliateProducts, listings]);
 
   const handleListingCartClick = async (
@@ -698,14 +716,14 @@ export default function MobileHomeExperience({
                   ) : null}
                 </div>
               </Link>
-              {product.cartHref ? (
+              {product.kind === "affiliate" ? (
                 <Link
-                  href={product.cartHref}
-                  aria-label={`Comprar ${product.title}`}
+                  href={product.href}
+                  aria-label={`Abrir ${product.title}`}
                   onClick={(event) => event.stopPropagation()}
-                  className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full bg-white text-zinc-950 shadow-md ring-1 ring-zinc-200"
+                  className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-950 shadow-[0_10px_24px_rgba(0,0,0,0.14)]"
                 >
-                  <CartPlusIcon className="h-5 w-5" />
+                  <OpenOfferIcon className="h-5 w-5" />
                 </Link>
               ) : product.listingId ? (
                 <button
@@ -713,9 +731,9 @@ export default function MobileHomeExperience({
                   aria-label={`Adicionar ${product.title} ao carrinho`}
                   disabled={quickCartKey === product.key}
                   onClick={(event) => handleListingCartClick(event, product)}
-                  className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full bg-white text-zinc-950 shadow-md ring-1 ring-zinc-200 disabled:opacity-60"
+                  className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-full bg-zinc-950 text-white shadow-[0_12px_28px_rgba(0,0,0,0.28)] ring-2 ring-white transition active:scale-95 disabled:opacity-60"
                 >
-                  <CartPlusIcon className="h-5 w-5" />
+                  <CartPlusIcon className="h-[22px] w-[22px]" />
                 </button>
               ) : null}
             </article>

@@ -10,6 +10,7 @@ import {
   sendManualPushCampaign,
   sendOfferCampaign,
 } from "@/lib/push/campaigns";
+import { buildSmartPushRecommendation } from "@/lib/push/intelligence";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -236,6 +237,45 @@ export async function POST(request: Request) {
 
     return buildRedirect(request, redirectPath, {
       success: `Oferta do catalogo enviada para ${result.audienceLabel}: web ${result.browserResult.sent}, app ${readNativePushSent(result.browserResult)}, internas ${result.inAppCount} e email ${result.emailResult.ok ? "aceito" : "com falha"}`,
+    });
+  }
+
+  if (action === "send_smart_offer_campaign") {
+    const selection = String(formData.get("selection") ?? "").trim();
+
+    if (!selection) {
+      return buildRedirect(request, redirectPath, {
+        error: "Recomendacao inteligente invalida",
+      });
+    }
+
+    const recommendation = await buildSmartPushRecommendation(selection);
+    const result = await sendOfferCampaign({
+      audience: recommendation.audience,
+      title: recommendation.title,
+      body: recommendation.body,
+      url: recommendation.url,
+      image: recommendation.image,
+      emailSubject: recommendation.title,
+      ctaLabel: "Abrir oferta",
+      filters: {
+        productSelection: recommendation.selection,
+        productSignal: recommendation.productSignal,
+      },
+    });
+
+    await admin.from("admin_audit_logs").insert({
+      actor_id: user.id,
+      action: "push_smart_campaign_sent",
+      target_type: "push_campaign",
+      details: {
+        ...result,
+        recommendation,
+      },
+    });
+
+    return buildRedirect(request, redirectPath, {
+      success: `Campanha inteligente enviada para ${result.audienceLabel}: web ${result.browserResult.sent}, app ${readNativePushSent(result.browserResult)}, internas ${result.inAppCount} e email ${result.emailResult.ok ? "aceito" : "com falha"}`,
     });
   }
 
