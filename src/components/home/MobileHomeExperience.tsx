@@ -3,6 +3,17 @@
 import { useMemo, useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  IconCoin,
+  IconExternalLink,
+  IconHeart,
+  IconLayoutGrid,
+  IconShoppingCartPlus,
+  IconStar,
+  IconTag,
+  IconUserPlus,
+  IconBuildingStore,
+} from "@tabler/icons-react";
 
 import {
   FAMILIES,
@@ -238,47 +249,6 @@ function matchesCategory(product: DisplayProduct, categorySlug: string) {
   );
 }
 
-function CartPlusIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-    >
-      <path
-        d="M5.5 5.5h15l-1.5 9H8L6.5 3H3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path d="M12.5 8v5.5M9.75 10.75h5.5" strokeLinecap="round" />
-      <circle cx="9" cy="20" r="1.5" />
-      <circle cx="18" cy="20" r="1.5" />
-    </svg>
-  );
-}
-
-function OpenOfferIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-    >
-      <path d="M14 5h5v5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M10 14 19 5" strokeLinecap="round" />
-      <path
-        d="M19 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 function QuickActionIcon({
   type,
   className,
@@ -287,62 +257,30 @@ function QuickActionIcon({
   className?: string;
 }) {
   if (type === "store") {
-    return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path d="M4 10h16l-1-5H5l-1 5Z" strokeLinejoin="round" />
-        <path d="M6 10v9h12v-9M9 19v-5h6v5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
+    return <IconBuildingStore className={className} stroke={1.8} />;
   }
 
   if (type === "star") {
-    return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.1L12 17.2 6.5 20.1l1-6.1L3 9.6l6.2-.9L12 3Z" strokeLinejoin="round" />
-      </svg>
-    );
+    return <IconStar className={className} stroke={1.8} />;
   }
 
   if (type === "coin") {
-    return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <circle cx="12" cy="12" r="8" />
-        <path d="M12 7v10M9.5 9.5c.5-.9 1.5-1.4 2.7-1.3 1.4.1 2.3.8 2.3 1.9 0 2.7-5 1.3-5 4 0 1.1 1 1.8 2.4 1.9 1.2.1 2.3-.4 2.8-1.4" strokeLinecap="round" />
-      </svg>
-    );
+    return <IconCoin className={className} stroke={1.8} />;
   }
 
   if (type === "grid") {
-    return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" />
-      </svg>
-    );
+    return <IconLayoutGrid className={className} stroke={1.8} />;
   }
 
   if (type === "seller") {
-    return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-7 8a7 7 0 0 1 14 0" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M18 7h4M20 5v4" strokeLinecap="round" />
-      </svg>
-    );
+    return <IconUserPlus className={className} stroke={1.8} />;
   }
 
   if (type === "heart") {
-    return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
+    return <IconHeart className={className} stroke={1.8} />;
   }
 
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M4 12 12 4h8v8l-8 8-8-8Z" strokeLinejoin="round" />
-      <circle cx="16" cy="8" r="1.4" />
-    </svg>
-  );
+  return <IconTag className={className} stroke={1.8} />;
 }
 
 export default function MobileHomeExperience({
@@ -516,7 +454,7 @@ export default function MobileHomeExperience({
     <div className="bg-white pb-7">
       <div className="border-b border-zinc-200 bg-white">
         <div className="overflow-x-auto px-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="flex min-w-max gap-5">
+          <div className="flex min-h-[46px] min-w-max items-end gap-5">
             {tabs.map((tab) => {
               const isActive = activeTab === tab.slug;
 
@@ -630,7 +568,7 @@ export default function MobileHomeExperience({
                 <Link
                   key={action.href}
                   href={action.href}
-                  className="flex w-[112px] shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 py-4 text-center shadow-sm"
+                  className="flex min-h-[96px] w-[112px] shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 py-4 text-center shadow-sm"
                 >
                   <span className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-950 text-white">
                     <QuickActionIcon type={action.icon} className="h-5 w-5" />
@@ -661,7 +599,7 @@ export default function MobileHomeExperience({
                     className="max-h-full max-w-full object-contain"
                   />
                 </div>
-                <p className="mt-2 line-clamp-2 text-xs font-black uppercase tracking-tight text-zinc-950">
+                <p className="mt-2 min-h-[2rem] line-clamp-2 text-xs font-black uppercase tracking-tight text-zinc-950">
                   {subcategory.label}
                 </p>
               </Link>
@@ -689,9 +627,9 @@ export default function MobileHomeExperience({
           {visibleProducts.map((product) => (
             <article
               key={product.key}
-              className="group relative overflow-hidden rounded-[1.35rem] border border-zinc-200 bg-white shadow-sm"
+              className="group relative flex h-full flex-col overflow-hidden rounded-[1.35rem] border border-zinc-200 bg-white shadow-sm"
             >
-              <Link href={product.href} className="block">
+              <Link href={product.href} className="flex h-full flex-col">
                 <div className="flex aspect-[0.92] items-center justify-center bg-zinc-50 p-3">
                   <img
                     src={getProductImage(product)}
@@ -699,21 +637,23 @@ export default function MobileHomeExperience({
                     className="max-h-full max-w-full object-contain transition duration-300 group-hover:scale-105"
                   />
                 </div>
-                <div className="space-y-1 p-3">
-                  {product.badge ? (
-                    <span className="inline-flex rounded-full bg-zinc-950 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white">
-                      {product.badge}
-                    </span>
-                  ) : null}
+                <div className="flex min-h-[132px] flex-1 flex-col gap-1 p-3">
+                  <div className="min-h-[18px]">
+                    {product.badge ? (
+                      <span className="inline-flex rounded-full bg-zinc-950 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white">
+                        {product.badge}
+                      </span>
+                    ) : null}
+                  </div>
                   <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-5 text-zinc-950">
                     {product.title}
                   </h3>
-                  <p className="text-base font-black text-zinc-950">
+                  <p className="mt-auto text-base font-black text-zinc-950">
                     {formatPrice(product.priceCents)}
                   </p>
-                  {product.meta ? (
-                    <p className="line-clamp-1 text-xs text-zinc-500">{product.meta}</p>
-                  ) : null}
+                  <p className="min-h-[1rem] line-clamp-1 text-xs text-zinc-500">
+                    {product.meta ?? ""}
+                  </p>
                 </div>
               </Link>
               {product.kind === "affiliate" ? (
@@ -723,7 +663,7 @@ export default function MobileHomeExperience({
                   onClick={(event) => event.stopPropagation()}
                   className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-950 shadow-[0_10px_24px_rgba(0,0,0,0.14)]"
                 >
-                  <OpenOfferIcon className="h-5 w-5" />
+                  <IconExternalLink className="h-5 w-5" stroke={1.8} />
                 </Link>
               ) : product.listingId ? (
                 <button
@@ -733,7 +673,7 @@ export default function MobileHomeExperience({
                   onClick={(event) => handleListingCartClick(event, product)}
                   className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-full bg-zinc-950 text-white shadow-[0_12px_28px_rgba(0,0,0,0.28)] ring-2 ring-white transition active:scale-95 disabled:opacity-60"
                 >
-                  <CartPlusIcon className="h-[22px] w-[22px]" />
+                  <IconShoppingCartPlus className="h-[22px] w-[22px]" stroke={1.8} />
                 </button>
               ) : null}
             </article>
